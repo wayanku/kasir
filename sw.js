@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smartpos-offline-v11';
+const CACHE_NAME = 'smartpos-offline-v77';
 const FILES_TO_CACHE = [
     './',
     './index.html',
