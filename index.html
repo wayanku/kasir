@@ -331,6 +331,15 @@
     </nav>
 
     <script>
+        // REGISTER SERVICE WORKER (Agar bisa jalan Offline)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Aplikasi siap offline'))
+                    .catch(err => console.log('Gagal register SW', err));
+            });
+        }
+
         let gudang = JSON.parse(localStorage.getItem('gudang_data')) || [];
         let riwayat = JSON.parse(localStorage.getItem('riwayat_transaksi')) || [];
         let cart = [];
@@ -614,15 +623,32 @@
         }
 
         // FUNGSI SUARA (TEXT-TO-SPEECH)
+        let currentUtterance = null; // Mencegah garbage collection di iOS
+
         function ucapkan(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); // Hentikan suara sebelumnya jika ada
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'id-ID'; // Set bahasa ke Indonesia
                 utterance.rate = 1.1; // Kecepatan bicara
+                
+                // Fix iOS: Simpan referensi object agar tidak dihapus memori sebelum bicara
+                currentUtterance = utterance;
+                utterance.onend = () => { currentUtterance = null; };
+
                 window.speechSynthesis.speak(utterance);
             }
         }
+
+        // Fix iOS: Pancing audio engine saat interaksi pertama user
+        document.addEventListener('click', function unlockAudio() {
+            if ('speechSynthesis' in window) {
+                const u = new SpeechSynthesisUtterance(" "); // Suara kosong
+                u.volume = 0;
+                window.speechSynthesis.speak(u);
+                document.removeEventListener('click', unlockAudio);
+            }
+        });
 
         // LOGIK SCAN KASIR BARU
         function handleScanKasir(sku) {
