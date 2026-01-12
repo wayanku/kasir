@@ -1,11 +1,11 @@
 // File: /Users/user/kasir/sw.js
 
-const CACHE_NAME = 'kasir-pro-offline-v9';
+const CACHE_NAME = 'kasir-pro-offline-v10';
 const urlsToCache = [
   './',
   './index.html',
   'https://cdn.tailwindcss.com',
-  'https://unpkg.com/html5-qrcode',
+  'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
   'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap'
 ];
 
