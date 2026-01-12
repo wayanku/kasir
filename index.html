@@ -49,6 +49,7 @@
         
         /* Safe Area for iPhones with Notch */
         .safe-pb { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 
         /* Custom Scrollbar */
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
@@ -109,10 +110,10 @@
             </header>
 
             <!-- Product Grid & Scanner Container -->
-            <div class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 pb-24 md:pb-6">
                 
                 <!-- Scanner (Hidden by default on Desktop, Toggleable) -->
-                <div id="scanner-container" class="hidden mb-6 bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-800 relative w-full max-w-2xl mx-auto aspect-video">
+                <div id="scanner-container" class="hidden mb-6 bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-800 relative w-full max-w-2xl mx-auto aspect-square md:aspect-video">
                     <div id="reader" class="w-full h-full"></div>
                     <button onclick="toggleScanner()" class="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full z-20"><i data-lucide="x"></i></button>
                     <div class="scan-laser"></div>
@@ -133,11 +134,12 @@
         </main>
 
         <!-- RIGHT PANEL: CART -->
-        <aside class="w-full md:w-96 bg-white border-l border-slate-200 flex flex-col h-[40vh] md:h-full shadow-2xl md:shadow-none z-40 rounded-t-[30px] md:rounded-none fixed bottom-0 md:relative transition-transform duration-300">
+        <aside id="panel-cart" class="w-full md:w-96 bg-white border-l border-slate-200 flex flex-col h-[85vh] md:h-full shadow-2xl md:shadow-none z-[60] rounded-t-[30px] md:rounded-none fixed bottom-0 md:relative transition-transform duration-300 translate-y-full md:translate-y-0">
             <!-- Cart Header -->
             <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-white rounded-t-[30px] md:rounded-none">
                 <h2 class="font-bold text-lg text-slate-800">Keranjang</h2>
                 <div class="flex gap-2">
+                    <button onclick="toggleMobileCart()" class="md:hidden text-slate-400 hover:bg-slate-100 p-2 rounded-lg"><i data-lucide="chevron-down"></i></button>
                     <button onclick="holdCart()" class="text-orange-500 hover:bg-orange-50 p-2 rounded-lg text-xs font-bold transition" title="Tunda Transaksi"><i data-lucide="pause-circle" class="w-4 h-4"></i></button>
                     <button onclick="clearCart()" class="text-red-500 hover:bg-red-50 p-2 rounded-lg text-xs font-bold transition">Hapus</button>
                     <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold" id="cart-badge">0 Item</span>
@@ -178,7 +180,7 @@
                 <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="database" class="text-blue-600"></i> Manajemen Stok</h2>
                 <button onclick="switchTab('pos')" class="md:hidden p-2 bg-slate-100 rounded-full"><i data-lucide="x"></i></button>
             </header>
-            <div class="p-6 overflow-y-auto custom-scrollbar">
+            <div class="p-6 overflow-y-auto custom-scrollbar pb-24">
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <button onclick="showAddProductForm()" class="bg-blue-600 text-white p-4 rounded-2xl shadow-lg shadow-blue-200 flex flex-col items-center gap-2 btn-active">
                         <i data-lucide="plus-circle"></i> <span class="font-bold text-sm">Tambah Barang</span>
@@ -197,7 +199,7 @@
                 <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="history" class="text-blue-600"></i> Riwayat Transaksi</h2>
                 <button onclick="switchTab('pos')" class="md:hidden p-2 bg-slate-100 rounded-full"><i data-lucide="x"></i></button>
             </header>
-            <div class="p-6 overflow-y-auto custom-scrollbar">
+            <div class="p-6 overflow-y-auto custom-scrollbar pb-24">
                 <!-- Dashboard Stats -->
                 <div class="grid grid-cols-2 gap-4 mb-6">
                     <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
@@ -214,6 +216,31 @@
         </div>
 
     </div>
+
+    <!-- MOBILE BOTTOM NAV -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center h-16 z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <button onclick="switchTab('pos')" class="nav-btn-mobile active flex flex-col items-center justify-center w-full h-full text-blue-600">
+            <i data-lucide="layout-grid" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold mt-1">Kasir</span>
+        </button>
+        <button onclick="toggleMobileCart()" class="nav-btn-mobile flex flex-col items-center justify-center w-full h-full text-slate-400 relative">
+            <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold mt-1">Keranjang</span>
+            <span id="mobile-cart-badge" class="absolute top-2 right-6 bg-red-500 text-white text-[10px] px-1.5 rounded-full hidden">0</span>
+        </button>
+        <button onclick="switchTab('history')" class="nav-btn-mobile flex flex-col items-center justify-center w-full h-full text-slate-400">
+            <i data-lucide="history" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold mt-1">Riwayat</span>
+        </button>
+        <button onclick="switchTab('stock')" class="nav-btn-mobile flex flex-col items-center justify-center w-full h-full text-slate-400">
+            <i data-lucide="package" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold mt-1">Stok</span>
+        </button>
+        <button onclick="openSettings()" class="nav-btn-mobile flex flex-col items-center justify-center w-full h-full text-slate-400">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold mt-1">Setting</span>
+        </button>
+    </nav>
 
     <!-- Hidden Print Area -->
     <div id="receipt-print-area" class="hidden"></div>
@@ -241,6 +268,8 @@
         let barcodeBuffer = ""; // Untuk USB Scanner
         let lastKeyTime = Date.now();
         let currentCategory = 'all';
+        let lastScannedCode = null;
+        let lastScannedTime = 0;
 
         // --- INIT & CORE FUNCTIONS ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -263,11 +292,10 @@
                 // QR Box dinamis: 85% lebar layar, tinggi disesuaikan untuk barcode memanjang
                 qrbox: function(viewfinderWidth, viewfinderHeight) {
                     return {
-                        width: Math.floor(viewfinderWidth * 0.85),
-                        height: Math.floor(viewfinderHeight * 0.5)
+                        width: Math.floor(viewfinderWidth * 0.90),
+                        height: Math.floor(viewfinderHeight * 0.60)
                     };
                 },
-                aspectRatio: 1.777778, // 16:9 (Sesuai container aspect-video)
                 formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.CODE_128 ],
                 // FITUR PRO: Gunakan deteksi native browser jika ada (lebih cepat & support miring)
                 experimentalFeatures: { useBarCodeDetectorIfSupported: true }
@@ -318,8 +346,13 @@
         }
 
         function processItem(id) {
-            // Jika pakai kamera, pause sebentar biar gak double scan
-            if(html5QrCode && html5QrCode.isScanning) html5QrCode.pause();
+            // Cegah scan berulang terlalu cepat untuk barang yang sama (Throttle 1.5 detik)
+            const now = Date.now();
+            if (id === lastScannedCode && now - lastScannedTime < 1500) {
+                return; // Abaikan jika barang sama discan dalam waktu < 1.5 detik
+            }
+            lastScannedCode = id;
+            lastScannedTime = now;
             
             playBeep();
 
@@ -335,9 +368,6 @@
             } else {
                 showAddProductForm(id);
             }
-            
-            // Resume kamera
-            if(html5QrCode) setTimeout(() => html5QrCode.resume(), 1000);
         }
 
         function saveDb() {
@@ -429,6 +459,11 @@
                     Swal.fire('Berhasil', 'Data stok sedang dikirim ke cloud di latar belakang.', 'success');
                 }
             });
+        }
+
+        function toggleMobileCart() {
+            const cartPanel = document.getElementById('panel-cart');
+            cartPanel.classList.toggle('translate-y-full');
         }
 
         // --- UI FUNCTIONS ---
@@ -632,6 +667,7 @@
             document.getElementById('grand-total').innerText = `Rp ${total.toLocaleString()}`;
             document.getElementById('sub-total').innerText = `Rp ${total.toLocaleString()}`;
             badge.innerText = `${totalItems} Item`;
+            mobileBadge.innerText = totalItems;
         }
 
         function updateQty(id, amount) {
