@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SmartPOS iOS Elite</title>
+    <title>SmartPOS Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
@@ -14,14 +15,14 @@
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #f2f2f7; /* iOS System Gray 6 */
-            color: #000;
+            color: #1c1c1e; /* iOS System Gray 1 */
             -webkit-font-smoothing: antialiased;
         }
 
         /* Scanner Frame iOS Style */
         #reader { border: none !important; border-radius: 30px; overflow: hidden; height: 100% !important; }
         #reader video { object-fit: cover !important; }
-
+        
         .ios-blur {
             background: rgba(255, 255, 255, 0.7);
             backdrop-filter: saturate(180%) blur(20px);
@@ -44,96 +45,147 @@
         .btn-active:active { transform: scale(0.96); opacity: 0.7; }
         
         /* Safe Area for iPhones with Notch */
-        .safe-pb { padding-bottom: env(safe-area-inset-bottom); }
+        .safe-pb { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d1d6; border-radius: 20px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+
+        /* Hide number input arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] { -moz-appearance: textfield; }
     </style>
 </head>
-<body class="flex flex-col min-h-screen">
+<body class="min-h-screen">
 
     <!-- Header Apple Style -->
-    <header class="ios-blur sticky top-0 z-[100] px-6 py-4 flex justify-between items-end border-b border-gray-200">
+    <header class="ios-blur sticky top-0 z-30 px-4 sm:px-6 py-3 flex justify-between items-center border-b border-gray-300/80">
         <div>
-            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">POS System</p>
-            <h1 class="text-2xl font-extrabold tracking-tight">Checkout</h1>
+            <h1 class="text-2xl font-extrabold tracking-tight">SmartPOS Pro</h1>
         </div>
-        <button onclick="location.reload()" class="text-blue-500 font-semibold">Reset</button>
+        <div class="flex items-center gap-2">
+            <button onclick="location.reload()" class="text-blue-500 font-semibold text-sm">Reset Sesi</button>
+            <button onclick="toggleStockView()" class="md:hidden bg-gray-200 p-2 rounded-full btn-active">
+                <i data-lucide="package"></i>
+            </button>
+        </div>
     </header>
 
-    <main class="flex-1 px-4 py-6 space-y-6 max-w-lg mx-auto w-full">
-        
-        <!-- Scanner Viewport -->
-        <div class="relative w-full aspect-square bg-black rounded-[40px] shadow-xl overflow-hidden border-4 border-white">
-            <div id="reader"></div>
-            <div class="scan-laser"></div>
-            <!-- Guide Box -->
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div class="w-[75%] h-[35%] border-2 border-white/40 rounded-2xl"></div>
-            </div>
-        </div>
+    <div class="md:grid md:grid-cols-2 md:gap-6 max-w-7xl mx-auto">
+        <!-- Kolom Kiri: Transaksi -->
+        <main class="md:h-[calc(100vh-65px)] md:overflow-y-auto custom-scrollbar flex flex-col">
+            <div class="p-4 space-y-4 flex-1">
+                <!-- Scanner Viewport -->
+                <div class="relative w-full max-w-md mx-auto aspect-square bg-gray-800 rounded-[40px] shadow-xl overflow-hidden border-4 border-white">
+                    <div id="reader"></div>
+                    <div class="scan-laser"></div>
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="w-[75%] h-[35%] border-2 border-white/40 rounded-2xl"></div>
+                    </div>
+                </div>
 
-        <!-- Quick Manual Input -->
-        <div class="ios-blur p-2 rounded-3xl flex items-center shadow-sm border border-gray-200">
-            <input id="manual-code" type="number" pattern="\d*" placeholder="Ketik Barcode Manual..." 
-                class="flex-1 bg-transparent px-4 py-3 outline-none text-sm font-medium">
-            <button onclick="handleManual()" class="bg-black text-white px-6 py-3 rounded-2xl font-bold text-xs btn-active">
-                ADD
-            </button>
-        </div>
+                <!-- Quick Manual Input -->
+                <div class="max-w-md mx-auto ios-blur p-2 rounded-3xl flex items-center shadow-sm border border-gray-200">
+                    <input id="manual-code" type="number" pattern="\d*" placeholder="Ketik Barcode Manual..." 
+                        class="flex-1 bg-transparent px-4 py-3 outline-none text-sm font-medium">
+                    <button onclick="handleManual()" class="bg-black text-white px-6 py-3 rounded-2xl font-bold text-xs btn-active">
+                        ADD
+                    </button>
+                </div>
 
-        <!-- Cart List -->
-        <div class="space-y-3">
-            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest px-2">Daftar Belanja</h3>
-            <div id="cart-list" class="space-y-2 pb-40">
-                <div class="bg-white p-10 rounded-[30px] text-center text-gray-400 italic text-sm">
-                    Scan barang untuk memulai...
+                <!-- Cart List -->
+                <div class="max-w-md mx-auto space-y-3">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest px-2">Daftar Belanja</h3>
+                    <div id="cart-list" class="space-y-2 pb-40 md:pb-4">
+                        <div id="cart-placeholder" class="bg-white/80 p-10 rounded-[30px] text-center text-gray-400 italic text-sm">
+                            Scan barang untuk memulai...
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
 
-    </main>
-
-    <!-- Bottom Action Card (Apple Style) -->
-    <div class="fixed bottom-0 left-0 right-0 p-4 ios-blur border-t border-gray-200 safe-pb z-[100]">
-        <div class="max-w-md mx-auto flex justify-between items-center bg-white p-5 rounded-[32px] shadow-lg">
-            <div>
-                <p class="text-[10px] text-gray-400 font-bold uppercase leading-none mb-1">Total</p>
-                <h2 id="grand-total" class="text-2xl font-black tracking-tighter">Rp 0</h2>
+            <!-- Bottom Action Card (Apple Style) -->
+            <div class="sticky bottom-0 left-0 right-0 p-4 ios-blur border-t border-gray-200 safe-pb z-20">
+                <div class="max-w-md mx-auto flex justify-between items-center bg-white p-4 rounded-[32px] shadow-lg">
+                    <div>
+                        <p class="text-[10px] text-gray-400 font-bold uppercase leading-none mb-1">Total</p>
+                        <h2 id="grand-total" class="text-2xl font-black tracking-tighter">Rp 0</h2>
+                    </div>
+                    <button onclick="showCheckoutOptions()" class="bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold text-sm btn-active shadow-lg shadow-blue-200">
+                        BAYAR
+                    </button>
+                </div>
             </div>
-            <button onclick="checkout()" class="bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold text-sm btn-active shadow-lg shadow-blue-200">
-                BAYAR
+        </main>
+
+        <!-- Kolom Kanan: Manajemen Stok -->
+        <aside id="stock-view" class="fixed inset-0 bg-gray-100 z-40 md:z-auto md:static md:h-[calc(100vh-65px)] md:overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-4 transform translate-x-full md:transform-none transition-transform duration-300 ease-in-out">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold">Kelola Stok</h2>
+                <button onclick="toggleStockView()" class="md:hidden text-gray-500 btn-active"><i data-lucide="x"></i></button>
+            </div>
+            
+            <button onclick="showAddProductForm()" class="w-full flex items-center justify-center gap-2 bg-blue-500 text-white font-bold py-3 px-4 rounded-2xl btn-active">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                <span>Tambah Barang Baru</span>
             </button>
-        </div>
+
+            <div class="space-y-2" id="stock-list">
+                <!-- Daftar stok akan dirender di sini -->
+            </div>
+        </aside>
     </div>
 
     <!-- Beep Sound -->
     <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3"></audio>
 
     <script>
-        let db = JSON.parse(localStorage.getItem('ios_pos_db')) || [];
+        const DB_KEY = 'smartpos_pro_db';
+        let db = JSON.parse(localStorage.getItem(DB_KEY)) || [
+            // Contoh data awal
+            {id: "8999909001013", name: "Lada Hitam Bubuk", price: 2500, stock: 100},
+            {id: "8992753111034", name: "Kopi Kapal Api", price: 1500, stock: 50},
+        ];
         let cart = [];
         let html5QrCode;
 
-        // --- OPTIMASI KHUSUS IPHONE (SAFARI) ---
+        // --- INIT & CORE FUNCTIONS ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initScanner();
+            renderStockList();
+            lucide.createIcons();
+        });
+
         function initScanner() {
             html5QrCode = new Html5Qrcode("reader");
             const config = {
                 fps: 25,
-                qrbox: { width: 280, height: 140 }, // Kotak memanjang pas untuk barcode lada hitam
+                qrbox: { width: 280, height: 140 },
                 aspectRatio: 1.0,
-                formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13 ] // Fokus hanya ke barcode batang
+                formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8 ]
             };
 
-            // iPhone butuh sedikit delay saat start agar kamera tidak crash
             setTimeout(() => {
                 html5QrCode.start({ facingMode: "environment" }, config, (barcode) => {
                     processItem(barcode);
-                    playBeep();
-                    html5QrCode.pause();
-                    setTimeout(() => html5QrCode.resume(), 1500);
-                }).catch(e => console.error("Kamera Error:", e));
+                }, (errorMessage) => {
+                    // Abaikan error, ini akan terus terpanggil saat tidak ada QR terdeteksi
+                }).catch(err => {
+                    console.error(`Tidak dapat memulai scanner`, err);
+                    document.getElementById('reader').innerHTML = `<div class="text-white/50 p-4 text-center text-xs">Kamera tidak dapat diakses. Izinkan akses kamera pada browser Anda.</div>`;
+                });
             }, 500);
         }
 
         function processItem(id) {
+            html5QrCode.pause();
+            playBeep();
+
             const product = db.find(p => p.id === id);
             if (product) {
                 const item = cart.find(c => c.id === id);
@@ -141,8 +193,9 @@
                 else cart.push({ ...product, qty: 1 });
                 renderCart();
             } else {
-                addNewProduct(id);
+                showAddProductForm(id);
             }
+            setTimeout(() => html5QrCode.resume(), 1000);
         }
 
         function handleManual() {
@@ -150,20 +203,86 @@
             if (code) {
                 processItem(code);
                 document.getElementById('manual-code').value = "";
-                playBeep();
             }
         }
 
-        function addNewProduct(id) {
+        function saveDb() {
+            localStorage.setItem(DB_KEY, JSON.stringify(db));
+            renderStockList();
+        }
+
+        function playBeep() { 
+            document.getElementById('beep-sound').play().catch(e => console.log("Interaksi user dibutuhkan untuk memutar suara.")); 
+        }
+
+        // --- UI FUNCTIONS ---
+        function toggleStockView() {
+            const stockView = document.getElementById('stock-view');
+            stockView.classList.toggle('translate-x-full');
+        }
+
+        function showAddProductForm(id = '') {
             Swal.fire({
-                title: 'Barang Baru',
-                text: `ID: ${id}`,
+                title: id ? 'Barang Baru Ditemukan' : 'Tambah Barang Manual',
                 html: `
+                    <input id="sw-id" class="swal2-input" placeholder="ID/Barcode" value="${id}" ${id ? 'readonly' : ''}>
                     <input id="sw-name" class="swal2-input" placeholder="Nama Barang">
                     <input id="sw-price" type="number" class="swal2-input" placeholder="Harga Jual">
-                    <input id="sw-stock" type="number" class="swal2-input" placeholder="Stok">
+                    <input id="sw-stock" type="number" class="swal2-input" placeholder="Stok Awal">
                 `,
+                confirmButtonText: 'Simpan',
+                showCancelButton: true,
                 confirmButtonColor: '#007aff',
+                cancelButtonText: 'Batal',
+                preConfirm: () => {
+                    const newId = document.getElementById('sw-id').value;
+                    const newName = document.getElementById('sw-name').value;
+                    const newPrice = document.getElementById('sw-price').value;
+                    const newStock = document.getElementById('sw-stock').value;
+                    if (!newId || !newName || !newPrice || !newStock) {
+                        Swal.showValidationMessage(`Semua field harus diisi`);
+                        return false;
+                    }
+                    return {
+                        id: newId,
+                        name: newName,
+                        price: parseInt(newPrice),
+                        stock: parseInt(newStock)
+                    }
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const existing = db.find(p => p.id === result.value.id);
+                    if (existing) {
+                        Swal.fire('Gagal', 'Barang dengan ID/Barcode tersebut sudah ada.', 'error');
+                        return;
+                    }
+                    db.push(result.value);
+                    saveDb();
+                    Swal.fire('Sukses!', 'Barang baru telah ditambahkan.', 'success');
+                    if (id) { // Jika dari scanner, langsung masukkan keranjang
+                        processItem(id);
+                    }
+                }
+            });
+        }
+
+        function showEditProductForm(id) {
+            const product = db.find(p => p.id === id);
+            if (!product) return;
+
+            Swal.fire({
+                title: 'Edit Barang',
+                html: `
+                    <input id="sw-id" class="swal2-input" value="${product.id}" readonly>
+                    <input id="sw-name" class="swal2-input" value="${product.name}">
+                    <input id="sw-price" type="number" class="swal2-input" value="${product.price}">
+                    <input id="sw-stock" type="number" class="swal2-input" value="${product.stock}">
+                `,
+                confirmButtonText: 'Update',
+                showCancelButton: true,
+                confirmButtonColor: '#007aff',
+                cancelButtonText: 'Batal',
                 preConfirm: () => {
                     return {
                         id: id,
@@ -172,52 +291,191 @@
                         stock: parseInt(document.getElementById('sw-stock').value)
                     }
                 }
-            }).then(r => {
-                if (r.value) {
-                    db.push(r.value);
-                    localStorage.setItem('ios_pos_db', JSON.stringify(db));
-                    processItem(id);
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const index = db.findIndex(p => p.id === id);
+                    db[index] = result.value;
+                    saveDb();
+                    Swal.fire('Sukses!', 'Data barang telah diperbarui.', 'success');
                 }
             });
         }
 
+        function deleteProduct(id) {
+            Swal.fire({
+                title: 'Anda yakin?',
+                text: "Data barang akan dihapus permanen!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ff3b30',
+                cancelButtonColor: '#8e8e93',
+                confirmButtonText: 'Ya, hapus!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    db = db.filter(p => p.id !== id);
+                    saveDb();
+                    Swal.fire('Terhapus!', 'Barang telah dihapus.', 'success');
+                }
+            })
+        }
+
+        // --- RENDER FUNCTIONS ---
         function renderCart() {
             const list = document.getElementById('cart-list');
+            const placeholder = document.getElementById('cart-placeholder');
             let total = 0;
-            if (cart.length === 0) return;
+
+            if (cart.length === 0) {
+                list.innerHTML = '';
+                placeholder.style.display = 'block';
+                document.getElementById('grand-total').innerText = 'Rp 0';
+                return;
+            }
+
+            placeholder.style.display = 'none';
 
             list.innerHTML = cart.map(item => {
                 total += item.price * item.qty;
                 return `
-                <div class="bg-white p-4 rounded-[24px] flex justify-between items-center shadow-sm border border-gray-100">
+                <div class="bg-white p-3 rounded-[24px] flex justify-between items-center shadow-sm border border-gray-100">
                     <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-bold text-blue-600">${item.qty}</div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="updateQty('${item.id}', -1)" class="w-7 h-7 bg-gray-100 rounded-full btn-active flex items-center justify-center text-lg">-</button>
+                            <span class="w-6 text-center font-bold text-blue-600">${item.qty}</span>
+                            <button onclick="updateQty('${item.id}', 1)" class="w-7 h-7 bg-gray-100 rounded-full btn-active flex items-center justify-center text-lg">+</button>
+                        </div>
                         <div>
                             <p class="font-bold text-sm">${item.name}</p>
                             <p class="text-[10px] text-gray-400 tracking-wider font-semibold">Rp ${item.price.toLocaleString()}</p>
                         </div>
                     </div>
-                    <p class="font-black text-gray-900">Rp ${(item.price * item.qty).toLocaleString()}</p>
+                    <p class="font-bold text-gray-800 text-sm">Rp ${(item.price * item.qty).toLocaleString()}</p>
                 </div>`;
             }).join('');
             document.getElementById('grand-total').innerText = `Rp ${total.toLocaleString()}`;
         }
 
-        function playBeep() { 
-            document.getElementById('beep-sound').play(); 
+        function updateQty(id, amount) {
+            const item = cart.find(c => c.id === id);
+            if (item) {
+                item.qty += amount;
+                if (item.qty <= 0) {
+                    cart = cart.filter(c => c.id !== id);
+                }
+                renderCart();
+            }
         }
 
-        function checkout() {
+        function renderStockList() {
+            const stockList = document.getElementById('stock-list');
+            if (db.length === 0) {
+                stockList.innerHTML = `<p class="text-center text-gray-500 italic mt-8">Belum ada data barang.</p>`;
+                return;
+            }
+            stockList.innerHTML = db.map(p => `
+                <div class="bg-white p-3 rounded-2xl flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold text-sm">${p.name}</p>
+                        <p class="text-xs text-gray-500">${p.id} &bull; Stok: ${p.stock}</p>
+                        <p class="text-sm font-bold text-blue-600">Rp ${p.price.toLocaleString()}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="showEditProductForm('${p.id}')" class="text-gray-500 p-2 hover:bg-gray-100 rounded-full"><i data-lucide="file-pen-line" class="w-4 h-4"></i></button>
+                        <button onclick="deleteProduct('${p.id}')" class="text-red-500 p-2 hover:bg-red-50 rounded-full"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // --- CHECKOUT & RECEIPT ---
+        function showCheckoutOptions() {
             if (cart.length === 0) return;
-            Swal.fire({ title: 'Success', text: 'Pembayaran Berhasil', icon: 'success', confirmButtonColor: '#007aff' });
-            cart = [];
-            document.getElementById('cart-list').innerHTML = '<div class="bg-white p-10 rounded-[30px] text-center text-gray-400 italic text-sm">Scan barang untuk memulai...</div>';
-            document.getElementById('grand-total').innerText = 'Rp 0';
+            Swal.fire({
+                title: 'Pilih Opsi Struk',
+                showDenyButton: true,
+                showCancelButton: true,
+                confirmButtonText: `<i data-lucide="printer" class="inline-block mr-2"></i> Cetak`,
+                denyButtonText: `<i data-lucide="send" class="inline-block mr-2"></i> WhatsApp`,
+                cancelButtonText: 'Selesai Saja',
+                confirmButtonColor: '#007aff',
+                denyButtonColor: '#25D366',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    printReceipt();
+                } else if (result.isDenied) {
+                    sendWhatsAppReceipt();
+                }
+                // Baik cetak, kirim, atau cancel, selesaikan transaksi
+                finishTransaction();
+            });
+            lucide.createIcons();
         }
 
-        // Init
-        lucide.createIcons();
-        initScanner();
+        function generateReceiptText() {
+            const now = dayjs().format('DD/MM/YYYY HH:mm:ss');
+            let total = 0;
+            let receipt = `*Struk Belanja SmartPOS Pro*\n`;
+            receipt += `----------------------------------\n`;
+            receipt += `Waktu: ${now}\n\n`;
+            cart.forEach(item => {
+                const itemTotal = item.price * item.qty;
+                total += itemTotal;
+                receipt += `${item.name}\n`;
+                receipt += `${item.qty} x Rp ${item.price.toLocaleString()} = Rp ${itemTotal.toLocaleString()}\n\n`;
+            });
+            receipt += `----------------------------------\n`;
+            receipt += `*TOTAL: Rp ${total.toLocaleString()}*\n\n`;
+            receipt += `Terima kasih telah berbelanja!`;
+            return {receipt, total};
+        }
+
+        function printReceipt() {
+            const { receipt } = generateReceiptText();
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`<pre>${receipt.replace(/\*/g, '')}</pre>`); // Hapus markdown bold
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        }
+
+        async function sendWhatsAppReceipt() {
+            const { value: phone } = await Swal.fire({
+                title: 'Masukkan No. WhatsApp',
+                input: 'tel',
+                inputPlaceholder: 'Contoh: 6281234567890',
+                confirmButtonColor: '#007aff',
+                inputValidator: (value) => {
+                    if (!value) {
+                        return 'Nomor tidak boleh kosong!'
+                    }
+                }
+            })
+
+            if (phone) {
+                const { receipt } = generateReceiptText();
+                const encodedReceipt = encodeURIComponent(receipt);
+                window.open(`https://wa.me/${phone}?text=${encodedReceipt}`, '_blank');
+            }
+        }
+
+        function finishTransaction() {
+            // Kurangi stok
+            cart.forEach(item => {
+                const productInDb = db.find(p => p.id === item.id);
+                if (productInDb) {
+                    productInDb.stock -= item.qty;
+                }
+            });
+            saveDb();
+
+            // Reset keranjang
+            cart = [];
+            renderCart();
+            Swal.fire({ title: 'Transaksi Selesai', icon: 'success', timer: 1500, showConfirmButton: false });
+        }
     </script>
 </body>
 </html>
