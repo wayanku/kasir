@@ -218,11 +218,26 @@
             Html5Qrcode.getCameras().then(cameras => {
                 let cameraId = null;
                 if (cameras && cameras.length) {
-                    const rearCameras = cameras.filter(camera => camera.facing === 'environment');
+                    // Cari kamera belakang (cek label karena facing mode tidak selalu tersedia)
+                    const rearCameras = cameras.filter(camera => 
+                        (camera.facing === 'environment') || 
+                        (camera.label && (
+                            camera.label.toLowerCase().includes('back') || 
+                            camera.label.toLowerCase().includes('belakang') ||
+                            camera.label.toLowerCase().includes('rear')
+                        ))
+                    );
+
                     if (rearCameras.length > 0) {
-                        // Heuristik: Cari kamera yang BUKAN ultrawide. Jika tidak ketemu, pakai yg terakhir.
-                        const mainCamera = rearCameras.find(c => c.label.toLowerCase().indexOf('wide') === -1);
-                        cameraId = mainCamera ? mainCamera.id : rearCameras[rearCameras.length - 1].id;
+                        // Heuristik: Hindari 'ultra' (ultrawide) dan 'tele' (zoom).
+                        // Jangan filter 'wide' karena kamera utama sering disebut 'Wide' (misal: Back Camera (Wide)).
+                        const mainCamera = rearCameras.find(c => {
+                            const label = c.label.toLowerCase();
+                            return !label.includes('ultra') && !label.includes('tele');
+                        });
+                        
+                        // Gunakan kamera utama yang ditemukan, atau fallback ke yang pertama
+                        cameraId = mainCamera ? mainCamera.id : rearCameras[0].id;
                         console.log(`Using camera ID: ${cameraId}`);
                     }
                 }
