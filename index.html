@@ -223,6 +223,16 @@
                 scanner = new Html5Qrcode("reader");
             }
             
+            // Callback sukses (dipisah biar bisa dipanggil ulang saat fallback)
+            const onScanSuccess = (decodedText) => {
+                const now = Date.now();
+                if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
+                lastScanCode = decodedText;
+                lastScanTime = now;
+                handleScanKasir(decodedText);
+                if(navigator.vibrate) navigator.vibrate(70);
+            };
+
             const config = { 
                 fps: 20, 
                 qrbox: { width: 250, height: 200 },
@@ -250,14 +260,7 @@
                 const constraints = selectedCameraId ? { deviceId: { exact: selectedCameraId } } : { facingMode: "environment" };
 
                 // Jalankan Scanner
-                scanner.start(constraints, config, (decodedText) => {
-                    const now = Date.now();
-                    if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
-                    lastScanCode = decodedText;
-                    lastScanTime = now;
-                    handleScanKasir(decodedText);
-                    if(navigator.vibrate) navigator.vibrate(70);
-                }).then(() => {
+                scanner.start(constraints, config, onScanSuccess).then(() => {
                     // --- LOGIKA ZOOM SETELAH KAMERA JALAN ---
                     const track = scanner.getRunningTrack();
                     const capabilities = track.getCapabilities();
@@ -279,8 +282,13 @@
                         };
                     }
                 }).catch(err => {
-                    console.error(err);
-                    document.getElementById('camera-prompt').style.display = 'flex';
+                    console.warn("Gagal start kamera spesifik, mencoba mode kompatibilitas...", err);
+                    // FALLBACK: Coba mode environment standar tanpa ID spesifik dan tanpa aspect ratio
+                    scanner.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 200 } }, onScanSuccess)
+                    .catch(errFinal => {
+                        console.error("Gagal total:", errFinal);
+                        document.getElementById('camera-prompt').style.display = 'flex';
+                    });
                 });
 
             });
