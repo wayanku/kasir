@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smartpos-offline-v2';
+const CACHE_NAME = 'smartpos-offline-v11';
 const FILES_TO_CACHE = [
     './',
     './index.html',
@@ -27,7 +27,10 @@ self.addEventListener('fetch', (event) => {
             // Jika ada di cache, pakai cache. Jika tidak, download dari internet
             return response || fetch(event.request).then((fetchResponse) => {
                 return caches.open(CACHE_NAME).then((cache) => {
-                    if(event.request.url.startsWith('http')) cache.put(event.request, fetchResponse.clone());
+                    // FIX: Hanya cache method GET. Jangan cache POST (Google Sheet Sync) agar tidak error
+                    if(event.request.url.startsWith('http') && event.request.method === 'GET') {
+                        cache.put(event.request, fetchResponse.clone());
+                    }
                     return fetchResponse;
                 });
             });
