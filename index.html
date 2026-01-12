@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -11,7 +10,7 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F1F5F9; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f1f5f9; -webkit-tap-highlight-color: transparent; padding-bottom: 120px; }
         .page { display: none; }
         .page.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -20,13 +19,14 @@
         /* AREA KAMERA */
         #reader { 
             width: 100% !important; 
+            height: 100% !important;
             min-height: 300px; 
             background: #1e1e2e;
             border: none !important;
         }
         #reader video { 
             object-fit: cover !important; 
-            border-radius: 24px;
+            border-radius: 32px;
         }
         
         .scan-container {
@@ -34,15 +34,15 @@
             border-radius: 28px;
             overflow: hidden;
             background: #000;
-            border: 4px solid white;
+            border: 0;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
         }
 
         /* Garis Laser */
         .laser {
             position: absolute; width: 100%; height: 2px;
-            background: #4F46E5;
-            box-shadow: 0 0 15px 2px #4F46E5;
+            background: #14b8a6;
+            box-shadow: 0 0 15px 2px #14b8a6;
             top: 0; z-index: 10;
             animation: moveLaser 2s infinite ease-in-out;
             pointer-events: none;
@@ -53,7 +53,7 @@
             100% { top: 10%; }
         }
 
-        .nav-btn.active { color: #4F46E5; }
+        .nav-btn.active { color: #0f766e; background: #ccfbf1; }
         .nav-btn.active svg { transform: translateY(-3px); }
 
         /* TOAST NOTIFICATION */
@@ -67,20 +67,24 @@
             #receipt-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; background: white; color: black; }
             .no-print { display: none !important; }
         }
+
+        /* HIDE SCROLLBAR */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="pb-24">
+<body>
 
     <!-- TOAST CONTAINER -->
     <div id="toast-container"></div>
 
     <!-- HEADER -->
-    <header class="p-6 bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b flex justify-between items-center">
+    <header class="px-6 py-4 bg-white sticky top-0 z-40 shadow-sm flex justify-between items-center border-b border-slate-100">
         <div>
-            <h1 class="text-xl font-bold text-indigo-900">Kasir<span class="text-indigo-500">Pintar</span></h1>
-            <p id="clock" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest"></p>
+            <h1 class="text-xl font-bold text-slate-800">Kasir<span class="text-teal-600">Pro</span></h1>
+            <p id="clock" class="text-[11px] font-semibold text-slate-400"></p>
         </div>
-        <button onclick="toggleSearch()" class="p-3 bg-indigo-50 rounded-full text-indigo-600">
+        <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-full text-slate-600 hover:bg-teal-50 hover:text-teal-600 transition">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
     </header>
@@ -88,7 +92,7 @@
     <!-- SEARCH OVERLAY -->
     <div id="search-box" class="fixed inset-0 bg-white z-[60] p-6 hidden">
         <div class="flex items-center gap-4 mb-6">
-            <input type="text" id="in-search" onkeyup="doSearch(this.value)" placeholder="Cari nama atau kode..." class="w-full p-4 bg-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500">
+            <input type="text" id="in-search" onkeyup="doSearch(this.value)" placeholder="Cari nama atau kode..." class="w-full p-4 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-teal-500">
             <button onclick="toggleSearch()" class="text-sm font-bold text-red-500">Batal</button>
         </div>
         <div id="res-search" class="space-y-4"></div>
@@ -99,7 +103,7 @@
         <!-- HALAMAN KASIR -->
         <div id="p-kasir" class="page active space-y-6">
             <!-- Scan Window -->
-            <div class="scan-container">
+            <div class="scan-container shadow-xl shadow-slate-200">
                 <div id="reader"></div>
                 <div class="laser"></div>
                 
@@ -113,53 +117,53 @@
                     <!-- Zoom Slider -->
                     <div id="zoom-box" class="bg-black/50 backdrop-blur-md p-2 rounded-full flex items-center gap-3 hidden w-full">
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" stroke-width="2"/></svg>
-                        <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1" class="w-full h-2 bg-indigo-500 rounded-lg appearance-none cursor-pointer">
+                        <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1" class="w-full h-2 bg-teal-500 rounded-lg appearance-none cursor-pointer">
                         <span id="zoom-value" class="text-white text-[10px] font-bold w-8">1x</span>
                     </div>
                 </div>
 
                 <!-- Tombol Jika Kamera Tidak Muncul -->
                 <div id="camera-prompt" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-6 text-center z-20">
-                    <svg class="w-12 h-12 mb-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke-width="2"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"/></svg>
+                    <svg class="w-12 h-12 mb-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke-width="2"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"/></svg>
                     <p class="mb-4 text-sm">Kamera memerlukan izin akses</p>
-                    <button onclick="startKamera()" class="bg-indigo-600 px-6 py-3 rounded-xl font-bold shadow-lg">Aktifkan Kamera</button>
+                    <button onclick="startKamera()" class="bg-teal-600 px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-teal-700 transition">Aktifkan Kamera</button>
                     <p class="mt-2 text-[10px] text-gray-400">Pastikan menggunakan HTTPS</p>
                 </div>
             </div>
 
             <!-- Temp Scan List (Barang Scan Sementara) -->
-            <div id="temp-scan-area" class="hidden bg-indigo-50 rounded-2xl p-4 border border-indigo-100 shadow-inner">
+            <div id="temp-scan-area" class="hidden bg-teal-50 rounded-xl p-4 border border-teal-100 shadow-inner">
                 <div class="flex justify-between items-center mb-3">
-                    <h3 class="font-bold text-indigo-900 text-sm">Hasil Scan</h3>
+                    <h3 class="font-bold text-teal-900 text-sm">Hasil Scan</h3>
                     <button onclick="batalTempSemua()" class="text-[10px] text-red-500 font-bold bg-white px-2 py-1 rounded-lg border border-red-100">BATAL SEMUA</button>
                 </div>
                 <div id="temp-list" class="space-y-2 mb-3 max-h-[150px] overflow-y-auto"></div>
-                <button onclick="masukKeranjang()" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition">MASUKKAN KE KERANJANG</button>
+                <button onclick="masukKeranjang()" class="w-full bg-teal-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-teal-200 active:scale-95 transition">MASUKKAN KE KERANJANG</button>
             </div>
 
             <!-- Keranjang -->
-            <div class="bg-white rounded-[32px] p-6 shadow-xl border border-gray-100">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
                 <div class="flex justify-between mb-4">
-                    <h2 class="font-bold text-gray-800 flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" stroke-width="2"/></svg> Keranjang</h2>
+                    <h2 class="font-bold text-slate-800 flex items-center gap-2"><svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" stroke-width="2"/></svg> Keranjang</h2>
                     <button onclick="resetCart()" class="text-xs text-red-500">Kosongkan</button>
                 </div>
-                <div id="cart-list" class="space-y-4 max-h-[300px] overflow-y-auto mb-6">
+                <div id="cart-list" class="space-y-3 max-h-[300px] overflow-y-auto mb-6 no-scrollbar">
                     <div class="text-center py-10 text-gray-300 text-sm">Belum ada item</div>
                 </div>
                 <div class="border-t pt-4 space-y-4">
                     <div class="flex justify-between items-center">
-                        <span class="text-gray-400">Total</span>
-                        <span id="total-harga" class="text-2xl font-bold text-indigo-600">Rp 0</span>
+                        <span class="text-gray-500 font-medium">Total Bayar</span>
+                        <span id="total-harga" class="text-2xl font-bold text-teal-600">Rp 0</span>
                     </div>
-                    <button onclick="bayarSekarang()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-indigo-100 active:scale-95 transition">BAYAR</button>
+                    <button onclick="bayarSekarang()" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-teal-200 active:scale-95 transition transform">BAYAR SEKARANG</button>
                 </div>
             </div>
         </div>
 
         <!-- HALAMAN STOK -->
         <div id="p-stok" class="page space-y-6">
-            <div class="bg-white p-6 rounded-[32px] shadow-sm border">
-                <h2 class="font-bold mb-4">Tambah Produk</h2>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="font-bold mb-4 text-gray-800">Tambah Produk</h2>
                 
                 <!-- Scanner Stok -->
                 <div id="box-scanner-stok" class="hidden mb-4 rounded-2xl overflow-hidden bg-black relative border-4 border-white shadow-lg">
@@ -169,44 +173,36 @@
 
                 <div class="grid grid-cols-2 gap-3">
                     <div class="col-span-2 flex gap-2">
-                        <input type="text" id="f-sku" placeholder="SKU/Barcode" class="flex-1 p-3 bg-gray-50 rounded-xl outline-none text-sm">
-                        <button onclick="bukaScannerStok()" class="bg-indigo-100 text-indigo-600 px-4 rounded-xl">
+                        <input type="text" id="f-sku" placeholder="SKU/Barcode" class="flex-1 p-4 bg-slate-50 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-teal-500 transition border border-transparent focus:border-transparent">
+                        <button onclick="bukaScannerStok()" class="bg-teal-50 text-teal-600 px-4 rounded-xl hover:bg-teal-100 transition">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 17h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" stroke-width="2"/></svg>
                         </button>
                     </div>
-                    <input type="text" id="f-nama" placeholder="Nama Produk" class="p-3 bg-gray-50 rounded-xl outline-none text-sm">
-                    <input type="number" id="f-harga" placeholder="Harga" class="p-3 bg-gray-50 rounded-xl outline-none text-sm">
-                    <input type="number" id="f-stok" placeholder="Jumlah Stok" class="p-3 bg-gray-50 rounded-xl outline-none text-sm">
+                    <input type="text" id="f-nama" placeholder="Nama Produk" class="p-4 bg-slate-50 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-teal-500 transition">
+                    <input type="number" id="f-harga" placeholder="Harga" class="p-4 bg-slate-50 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-teal-500 transition">
+                    <input type="number" id="f-stok" placeholder="Stok" class="p-4 bg-slate-50 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-teal-500 transition">
                 </div>
-                <button onclick="simpanProduk()" class="w-full mt-4 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-200">Simpan Produk</button>
+                <button onclick="simpanProduk()" class="w-full mt-4 bg-teal-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-teal-200 active:scale-95 transition">Simpan Produk</button>
             </div>
 
-            <div class="bg-white rounded-[32px] shadow-sm border overflow-hidden">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="p-4">Produk</th>
-                            <th class="p-4">Stok</th>
-                            <th class="p-4">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="list-stok"></tbody>
-                </table>
+            <!-- List Stok Card Style -->
+            <div id="list-stok" class="space-y-3 pb-10">
+                <!-- Item akan dirender di sini sebagai kartu -->
             </div>
         </div>
     </main>
 
     <!-- HALAMAN LAPORAN -->
     <div id="p-laporan" class="page p-4 max-w-4xl mx-auto space-y-6">
-        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[32px] p-6 text-white shadow-xl">
-            <p class="text-indigo-100 text-sm font-medium mb-1">Omzet Hari Ini</p>
+        <div class="bg-gradient-to-br from-teal-600 to-emerald-600 rounded-2xl p-6 text-white shadow-lg shadow-teal-200">
+            <p class="text-teal-50 text-sm font-medium mb-1">Omzet Hari Ini</p>
             <h2 id="omzet-hari-ini" class="text-3xl font-bold">Rp 0</h2>
             <div class="mt-4 flex gap-2">
                 <div class="bg-white/20 px-3 py-1 rounded-lg text-xs backdrop-blur-sm" id="total-transaksi-hari">0 Transaksi</div>
             </div>
         </div>
 
-        <div class="bg-white rounded-[32px] p-6 shadow-sm border">
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
             <h3 class="font-bold text-gray-800 mb-4">Riwayat Transaksi</h3>
             <div id="list-riwayat" class="space-y-4 max-h-[400px] overflow-y-auto">
                 <!-- List Transaksi -->
@@ -216,34 +212,34 @@
 
     <!-- HALAMAN PENGATURAN -->
     <div id="p-pengaturan" class="page p-4 max-w-4xl mx-auto space-y-6">
-        <div class="bg-white rounded-[32px] p-6 shadow-sm border space-y-4">
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
             <h3 class="font-bold text-gray-800">Manajemen Data</h3>
             
-            <div class="p-4 bg-gray-50 rounded-2xl flex justify-between items-center">
+            <div class="p-4 bg-slate-50 rounded-xl flex justify-between items-center">
                 <div>
                     <div class="font-bold text-sm text-gray-700">Backup Data</div>
                     <div class="text-xs text-gray-400">Simpan database ke file JSON</div>
                 </div>
-                <button onclick="backupData()" class="bg-indigo-100 text-indigo-600 px-4 py-2 rounded-xl text-sm font-bold">Download</button>
+                <button onclick="backupData()" class="bg-teal-50 text-teal-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-teal-100">Download</button>
             </div>
 
-            <div class="p-4 bg-gray-50 rounded-2xl flex justify-between items-center">
+            <div class="p-4 bg-slate-50 rounded-xl flex justify-between items-center">
                 <div>
                     <div class="font-bold text-sm text-gray-700">Restore Data</div>
                     <div class="text-xs text-gray-400">Kembalikan data dari file</div>
                 </div>
-                <label class="bg-emerald-100 text-emerald-600 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer">
+                <label class="bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer hover:bg-blue-100">
                     Upload
                     <input type="file" id="file-restore" onchange="restoreData(this)" class="hidden" accept=".json">
                 </label>
             </div>
 
-            <div class="p-4 bg-red-50 rounded-2xl flex justify-between items-center">
+            <div class="p-4 bg-red-50 rounded-xl flex justify-between items-center">
                 <div>
                     <div class="font-bold text-sm text-red-700">Reset Aplikasi</div>
                     <div class="text-xs text-red-400">Hapus semua data permanen</div>
                 </div>
-                <button onclick="resetAplikasi()" class="bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-bold">Reset</button>
+                <button onclick="resetAplikasi()" class="bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-200">Reset</button>
             </div>
         </div>
         <div class="text-center text-xs text-gray-400">
@@ -261,7 +257,38 @@
             <p class="text-gray-500 text-sm mb-6">Barcode <span id="txt-unknown-sku" class="font-mono font-bold text-gray-800 bg-gray-100 px-2 py-1 rounded"></span> belum ada di stok.</p>
             <div class="flex gap-3">
                 <button onclick="tutupModalUnknown()" class="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl">Batal</button>
-                <button onclick="redirectKeStok()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg">Tambah Stok</button>
+                <button onclick="redirectKeStok()" class="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg">Tambah Stok</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL BAYAR (PROFESSIONAL) -->
+    <div id="modal-bayar" class="fixed inset-0 bg-black/60 z-[100] hidden flex items-end sm:items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-md shadow-2xl animate-slideUp sm:animate-none">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-bold text-xl text-gray-800">Pembayaran</h3>
+                <button onclick="tutupModalBayar()" class="text-gray-400 hover:text-gray-800">✕</button>
+            </div>
+            
+            <div class="bg-teal-50 p-6 rounded-2xl mb-6 text-center border border-teal-100">
+                <p class="text-sm text-gray-500 font-bold uppercase tracking-wider">Total Tagihan</p>
+                <h2 id="bayar-total" class="text-4xl font-bold text-teal-600 mt-2">Rp 0</h2>
+            </div>
+
+            <div class="space-y-4 mb-8">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 ml-1 mb-1 block">UANG DITERIMA (F8)</label>
+                    <input type="number" id="input-uang" onkeyup="hitungKembalian()" class="w-full p-4 bg-slate-100 rounded-xl text-xl font-bold outline-none focus:ring-2 focus:ring-teal-500 transition-all" placeholder="0">
+                </div>
+                <div class="flex justify-between items-center px-2 py-2 border-t border-dashed">
+                    <span class="text-sm font-bold text-gray-500">Kembalian</span>
+                    <span id="txt-kembalian" class="text-2xl font-bold text-emerald-600">Rp 0</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="tutupModalBayar()" class="py-4 text-gray-500 font-bold bg-slate-100 rounded-xl hover:bg-slate-200 transition">Batal</button>
+                <button onclick="prosesPembayaranFinal()" class="py-4 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-700 transition active:scale-95">Selesai (Enter)</button>
             </div>
         </div>
     </div>
@@ -276,27 +303,27 @@
             </div>
 
             <div class="flex gap-3 no-print">
-                <button onclick="window.print()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg">Cetak</button>
+                <button onclick="window.print()" class="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg">Cetak</button>
                 <button onclick="tutupStruk()" class="flex-1 py-3 text-gray-500 font-bold bg-gray-100 rounded-xl">Tutup</button>
             </div>
         </div>
     </div>
 
     <!-- NAVIGASI -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around items-center z-50">
-        <button onclick="bukaHalaman('kasir')" id="nav-kasir" class="nav-btn active flex flex-col items-center gap-1">
+    <nav class="fixed bottom-4 left-4 right-4 bg-white/95 backdrop-blur-xl border border-slate-200 shadow-xl shadow-slate-200/50 p-2 rounded-2xl flex justify-around items-center z-50">
+        <button onclick="bukaHalaman('kasir')" id="nav-kasir" class="nav-btn active flex flex-col items-center gap-1 p-3 rounded-xl transition-all duration-300">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 17h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" stroke-width="2"/></svg>
             <span class="text-[10px] font-bold">KASIR</span>
         </button>
-        <button onclick="bukaHalaman('stok')" id="nav-stok" class="nav-btn text-gray-400 flex flex-col items-center gap-1">
+        <button onclick="bukaHalaman('stok')" id="nav-stok" class="nav-btn text-gray-400 flex flex-col items-center gap-1 p-3 rounded-xl transition-all duration-300">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-width="2"/></svg>
             <span class="text-[10px] font-bold">STOK</span>
         </button>
-        <button onclick="bukaHalaman('laporan')" id="nav-laporan" class="nav-btn text-gray-400 flex flex-col items-center gap-1">
+        <button onclick="bukaHalaman('laporan')" id="nav-laporan" class="nav-btn text-gray-400 flex flex-col items-center gap-1 p-3 rounded-xl transition-all duration-300">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span class="text-[10px] font-bold">LAPORAN</span>
         </button>
-        <button onclick="bukaHalaman('pengaturan')" id="nav-pengaturan" class="nav-btn text-gray-400 flex flex-col items-center gap-1">
+        <button onclick="bukaHalaman('pengaturan')" id="nav-pengaturan" class="nav-btn text-gray-400 flex flex-col items-center gap-1 p-3 rounded-xl transition-all duration-300">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-width="2"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"/></svg>
             <span class="text-[10px] font-bold">SETTING</span>
         </button>
@@ -313,6 +340,8 @@
         let lastScanCode = null;
         let lastScanTime = 0;
         let currentTrack = null;
+        let barcodeBuffer = "";
+        let barcodeTimer;
 
         // JAM OTOMATIS
         setInterval(() => {
@@ -335,6 +364,35 @@
             }, 3000);
         }
 
+        // KEYBOARD LISTENER (USB SCANNER & SHORTCUTS)
+        document.addEventListener('keydown', (e) => {
+            // Shortcuts
+            if(e.key === 'F2') { e.preventDefault(); toggleSearch(); return; }
+            if(e.key === 'F4') { e.preventDefault(); bayarSekarang(); return; }
+            if(e.key === 'F8') { e.preventDefault(); document.getElementById('input-uang').focus(); return; }
+            
+            // USB Scanner Logic
+            // Ignore if typing in input (except if it's the reader div which is not an input)
+            if(e.target.tagName === 'INPUT') {
+                // Allow Enter in payment modal
+                if(e.key === 'Enter' && !document.getElementById('modal-bayar').classList.contains('hidden')) {
+                    prosesPembayaranFinal();
+                }
+                return; 
+            }
+
+            if(e.key === 'Enter') {
+                if(barcodeBuffer.length > 0) {
+                    handleScanKasir(barcodeBuffer);
+                    barcodeBuffer = "";
+                }
+            } else if (e.key.length === 1) {
+                barcodeBuffer += e.key;
+                clearTimeout(barcodeTimer);
+                barcodeTimer = setTimeout(() => barcodeBuffer = "", 50);
+            }
+        });
+
         // KAMERA ENGINE
         function startKamera() {
             document.getElementById('camera-prompt').style.display = 'none';
@@ -342,31 +400,19 @@
                 scanner = new Html5Qrcode("reader");
             }
             
-            // Callback sukses (dipisah biar bisa dipanggil ulang saat fallback)
-            const onScanSuccess = (decodedText) => {
-                const now = Date.now();
-                if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
-                lastScanCode = decodedText;
-                lastScanTime = now;
-                handleScanKasir(decodedText);
-                if(navigator.vibrate) navigator.vibrate(70);
-            };
-
             const config = { 
                 fps: 20, 
                 qrbox: { width: 250, height: 200 },
-                aspectRatio: 1.333334 
+                // Menambahkan aspek rasio standar (4:3) untuk menghindari lensa ultra-wide
+                aspectRatio: 1.333334
             };
             
-            // LOGIKA SEDERHANA: Langsung minta kamera belakang (environment)
-            // Browser akan otomatis minta izin jika belum ada.
-            scanner.start({ facingMode: "environment" }, config, onScanSuccess)
-            .then(() => {
-                // --- LOGIKA ZOOM SETELAH KAMERA JALAN ---
+            // Fungsi Helper untuk mengaktifkan UI Zoom/Flash setelah kamera jalan
+            const onCameraReady = () => {
                 const track = scanner.getRunningTrack();
                 const capabilities = track.getCapabilities();
-                
                 const camControls = document.getElementById('cam-controls');
+                
                 camControls.classList.remove('hidden');
                 camControls.classList.add('flex');
 
@@ -389,14 +435,74 @@
                 if (capabilities.torch) {
                     document.getElementById('btn-flash').classList.remove('hidden');
                 }
-            })
-            .catch(err => {
-                console.warn("Gagal start environment, mencoba mode user...", err);
-                // Fallback: Coba kamera depan/user jika belakang gagal
-                scanner.start({ facingMode: "user" }, config, onScanSuccess)
-                .catch(errFinal => {
-                    console.error("Gagal total:", errFinal);
-                    // Tampilkan tombol manual hanya jika benar-benar gagal total
+            };
+
+            // 1. Dapatkan daftar kamera terlebih dahulu
+            Html5Qrcode.getCameras().then(cameras => {
+                let selectedCameraId = null;
+
+                if (cameras && cameras.length > 0) {
+                    // Filter hanya kamera belakang
+                    const backCameras = cameras.filter(c => {
+                        const label = c.label.toLowerCase();
+                        return label.includes('back') || label.includes('rear') || label.includes('belakang');
+                    });
+
+                    if (backCameras.length > 0) {
+                        // Cari Kamera Utama dengan kata kunci negatif (menghindari ultra-wide/tele/macro)
+                        const mainCamera = backCameras.find(c => {
+                            const label = c.label.toLowerCase();
+                            const isUltraWide = label.includes('ultra') || (label.includes('wide') && (label.includes('0.5') || label.includes('0.6')));
+                            const isSpecial = label.includes('tele') || label.includes('macro') || label.includes('depth') || label.includes('virtual');
+                            
+                            // Prioritaskan yang ada angka "0" atau "primary" atau "main"
+                            return (label.includes('0') || label.includes('main') || label.includes('primary')) && !isUltraWide && !isSpecial;
+                        });
+
+                        // Jika pencarian spesifik gagal, ambil kamera belakang pertama yang tidak punya kata "ultra"
+                        selectedCameraId = mainCamera ? mainCamera.id : 
+                                           (backCameras.find(c => !c.label.toLowerCase().includes('ultra'))?.id || backCameras[0].id);
+                        
+                        console.log("Kamera terpilih:", cameras.find(c => c.id === selectedCameraId)?.label);
+                    }
+                }
+
+                const constraints = selectedCameraId ? 
+                    { deviceId: { exact: selectedCameraId } } : 
+                    { facingMode: "environment" };
+
+                // Eksekusi Start dengan ID spesifik
+                scanner.start(constraints, config, (decodedText) => {
+                    const now = Date.now();
+                    if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
+                    lastScanCode = decodedText;
+                    lastScanTime = now;
+                    handleScanKasir(decodedText);
+                    if(navigator.vibrate) navigator.vibrate(70);
+                })
+                .then(() => {
+                    onCameraReady(); // Aktifkan kontrol Zoom/Flash
+                })
+                .catch(err => {
+                    console.error("Gagal start kamera spesifik, mencoba default environment", err);
+                    // Fallback terakhir: Mode Environment standar
+                    scanner.start({ facingMode: "environment" }, config, (decodedText) => {
+                        handleScanKasir(decodedText);
+                    })
+                    .then(() => onCameraReady())
+                    .catch(e => {
+                        document.getElementById('camera-prompt').style.display = 'flex';
+                    });
+                });
+
+            }).catch(err => {
+                console.error("Gagal mendapatkan daftar kamera (izin ditolak?)", err);
+                // Fallback jika getCameras gagal total
+                scanner.start({ facingMode: "environment" }, config, (decodedText) => {
+                    handleScanKasir(decodedText);
+                })
+                .then(() => onCameraReady())
+                .catch(() => {
                     document.getElementById('camera-prompt').style.display = 'flex';
                 });
             });
@@ -446,6 +552,7 @@
             document.getElementById('p-' + nama).classList.add('active');
             
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'text-indigo-600'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'text-teal-600'));
             document.getElementById('nav-' + nama).classList.add('active');
 
             if(nama === 'laporan') renderLaporan();
@@ -476,9 +583,9 @@
             
             const filtered = gudang.filter(p => p.nama.toLowerCase().includes(val.toLowerCase()) || p.sku.includes(val));
             res.innerHTML = filtered.map(p => `
-                <div onclick="tambahKeCart('${p.sku}'); toggleSearch()" class="p-4 bg-gray-50 rounded-2xl flex justify-between border-b">
+                <div onclick="tambahKeCart('${p.sku}'); toggleSearch()" class="p-4 bg-slate-50 rounded-xl flex justify-between border-b border-slate-100">
                     <div><b>${p.nama}</b><br><small>${p.sku}</small></div>
-                    <div class="text-indigo-600 font-bold">Rp ${parseInt(p.harga).toLocaleString()}</div>
+                    <div class="text-teal-600 font-bold">Rp ${parseInt(p.harga).toLocaleString()}</div>
                 </div>
             `).join('');
         }
@@ -528,7 +635,7 @@
             } else {
                 // Produk ada -> Ucapkan nama & Masuk tempCart
                 ucapkan(produk.nama);
-                tempCart.push({
+                tempCart.unshift({
                     ...produk,
                     tempId: Date.now() + Math.random() // ID unik untuk list sementara
                 });
@@ -547,13 +654,13 @@
             
             area.classList.remove('hidden');
             list.innerHTML = tempCart.map((item, i) => `
-                <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-indigo-50 temp-item">
+                <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-teal-50 temp-item">
                     <div>
-                        <div class="font-bold text-sm text-indigo-900">${item.nama}</div>
+                        <div class="font-bold text-sm text-teal-900">${item.nama}</div>
                         <div class="text-[10px] text-gray-400">${item.sku}</div>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span class="text-xs font-bold text-indigo-600">Rp ${parseInt(item.harga).toLocaleString()}</span>
+                        <span class="text-xs font-bold text-teal-600">Rp ${parseInt(item.harga).toLocaleString()}</span>
                         <button onclick="hapusTemp(${i})" class="w-6 h-6 bg-red-100 text-red-500 rounded-full flex items-center justify-center font-bold text-xs">✕</button>
                     </div>
                 </div>
@@ -582,13 +689,16 @@
         }
 
         function tambahKeCartCore(produk) {
-            const diCart = cart.find(c => c.sku === produk.sku);
-            if(diCart) {
-                // Cek stok real
+            const index = cart.findIndex(c => c.sku === produk.sku);
+            if(index > -1) {
+                const item = cart[index];
                 const stokGudang = gudang.find(g => g.sku === produk.sku).stok;
-                if(diCart.qty < stokGudang) diCart.qty++;
+                if(item.qty < stokGudang) item.qty++;
+                // Pindahkan ke atas (Professional UX)
+                cart.splice(index, 1);
+                cart.unshift(item);
             } else {
-                cart.push({...produk, qty: 1});
+                cart.unshift({...produk, qty: 1});
             }
         }
 
@@ -624,15 +734,15 @@
                 list.innerHTML = cart.map((item, i) => {
                     total += item.harga * item.qty;
                     return `
-                        <div class="flex justify-between items-center bg-gray-50 p-3 rounded-2xl">
+                        <div class="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
                             <div>
-                                <div class="font-bold text-sm">${item.nama}</div>
-                                <div class="text-xs text-gray-400">Rp ${parseInt(item.harga).toLocaleString()}</div>
+                                <div class="font-bold text-gray-800">${item.nama}</div>
+                                <div class="text-xs text-teal-600 font-bold mt-1">Rp ${parseInt(item.harga).toLocaleString()}</div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <button onclick="updateQty(${i}, -1)" class="w-8 h-8 bg-white rounded-lg">-</button>
-                                <span class="font-bold">${item.qty}</span>
-                                <button onclick="updateQty(${i}, 1)" class="w-8 h-8 bg-white rounded-lg">+</button>
+                                <button onclick="updateQty(${i}, -1)" class="w-8 h-8 bg-white rounded-full shadow-sm text-slate-600 font-bold border border-slate-200 hover:bg-slate-100">-</button>
+                                <span class="font-bold text-gray-800 w-6 text-center">${item.qty}</span>
+                                <button onclick="updateQty(${i}, 1)" class="w-8 h-8 bg-teal-600 text-white rounded-full shadow-md font-bold hover:bg-teal-700">+</button>
                             </div>
                         </div>
                     `;
@@ -649,12 +759,24 @@
 
         function renderStok() {
             const list = document.getElementById('list-stok');
+            if(gudang.length === 0) {
+                list.innerHTML = '<div class="text-center text-gray-400 py-10">Belum ada produk tersimpan</div>';
+                return;
+            }
             list.innerHTML = gudang.map(p => `
-                <tr class="border-b">
-                    <td class="p-4"><b>${p.nama}</b><br><small>${p.sku}</small></td>
-                    <td class="p-4"><span class="px-2 py-1 rounded-lg font-bold ${p.stok < 5 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}">${p.stok}</span></td>
-                    <td class="p-4"><button onclick="hapusProduk('${p.sku}')" class="text-red-500 font-bold">Hapus</button></td>
-                </tr>
+                <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-gray-800 text-base">${p.nama}</div>
+                        <div class="text-xs text-gray-400 font-mono mb-1">${p.sku}</div>
+                        <div class="text-teal-600 font-bold text-sm">Rp ${parseInt(p.harga).toLocaleString()}</div>
+                    </div>
+                    <div class="flex flex-col items-end gap-2">
+                        <span class="px-3 py-1 rounded-full text-xs font-bold ${p.stok < 5 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}">
+                            Stok: ${p.stok}
+                        </span>
+                        <button onclick="hapusProduk('${p.sku}')" class="text-xs text-red-400 font-bold bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition">Hapus</button>
+                    </div>
+                </div>
             `).join('');
         }
 
@@ -668,7 +790,33 @@
 
         function bayarSekarang() {
             if(cart.length === 0) return showToast("Keranjang Kosong!", "error");
+            const total = cart.reduce((sum, item) => sum + (item.harga * item.qty), 0);
             
+            document.getElementById('bayar-total').innerText = `Rp ${total.toLocaleString()}`;
+            document.getElementById('input-uang').value = '';
+            document.getElementById('txt-kembalian').innerText = 'Rp 0';
+            document.getElementById('modal-bayar').classList.remove('hidden');
+            setTimeout(() => document.getElementById('input-uang').focus(), 100);
+        }
+
+        function tutupModalBayar() {
+            document.getElementById('modal-bayar').classList.add('hidden');
+        }
+
+        function hitungKembalian() {
+            const total = cart.reduce((sum, item) => sum + (item.harga * item.qty), 0);
+            const uang = parseInt(document.getElementById('input-uang').value) || 0;
+            const kembali = uang - total;
+            document.getElementById('txt-kembalian').innerText = `Rp ${kembali.toLocaleString()}`;
+            document.getElementById('txt-kembalian').className = kembali >= 0 ? "text-2xl font-bold text-emerald-600" : "text-2xl font-bold text-red-600";
+        }
+
+        function prosesPembayaranFinal() {
+            const total = cart.reduce((sum, item) => sum + (item.harga * item.qty), 0);
+            const uang = parseInt(document.getElementById('input-uang').value) || 0;
+            
+            if(uang < total) return showToast("Uang kurang!", "error");
+
             let totalBayar = 0;
             const itemsStruk = [];
 
@@ -684,7 +832,9 @@
                 id: 'TRX-' + Date.now(),
                 tanggal: new Date().toISOString(),
                 items: itemsStruk,
-                total: totalBayar
+                total: totalBayar,
+                bayar: uang,
+                kembali: uang - totalBayar
             };
             riwayat.push(transaksi);
             
@@ -692,6 +842,7 @@
             localStorage.setItem('riwayat_transaksi', JSON.stringify(riwayat));
             
             showToast("Pembayaran Berhasil!", "success");
+            tutupModalBayar();
             cart = [];
             renderCart();
             renderStok();
@@ -724,6 +875,14 @@
                     <span>TOTAL</span>
                     <span>Rp ${trx.total.toLocaleString()}</span>
                 </div>
+                <div class="flex justify-between text-sm mt-1">
+                    <span>Tunai</span>
+                    <span>Rp ${(trx.bayar || trx.total).toLocaleString()}</span>
+                </div>
+                <div class="flex justify-between text-sm mt-1">
+                    <span>Kembali</span>
+                    <span>Rp ${(trx.kembali || 0).toLocaleString()}</span>
+                </div>
                 <p class="text-[10px] text-gray-400 mt-4">Terima Kasih</p>
             `;
             
@@ -746,12 +905,12 @@
 
             const list = document.getElementById('list-riwayat');
             list.innerHTML = riwayat.slice().reverse().map(t => `
-                <div onclick='tampilkanStruk(${JSON.stringify(t)})' class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border-b cursor-pointer hover:bg-gray-100">
+                <div onclick='tampilkanStruk(${JSON.stringify(t)})' class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border-b border-slate-100 cursor-pointer hover:bg-slate-100">
                     <div>
                         <div class="font-bold text-sm text-gray-800">${new Date(t.tanggal).toLocaleTimeString('id-ID')}</div>
                         <div class="text-xs text-gray-400">${t.id}</div>
                     </div>
-                    <div class="font-bold text-indigo-600">Rp ${t.total.toLocaleString()}</div>
+                    <div class="font-bold text-teal-600">Rp ${t.total.toLocaleString()}</div>
                 </div>
             `).join('');
         }
