@@ -1,5 +1,5 @@
 {
-  "name": "KasirPro QR Scanner",
+  "name": "KasirPintar Pro",
   "short_name": "KasirPro",
   "start_url": "index.html",
   "display": "standalone",
@@ -7,7 +7,7 @@
   "theme_color": "#4F46E5",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/9561/9561726.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/3050/3050225.png",
       "sizes": "512x512",
       "type": "image/png"
     }
