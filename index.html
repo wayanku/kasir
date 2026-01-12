@@ -102,7 +102,7 @@
                     <h1 class="text-xl font-bold text-slate-800 hidden md:block">Kasir</h1>
                     <div class="relative flex-1">
                         <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                        <input type="text" id="search-input" onkeyup="filterProducts()" placeholder="Cari nama barang atau kode..." 
+                        <input type="text" id="search-input" onkeyup="filterProducts()" onkeypress="handleSearchEnter(event)" placeholder="Cari nama / Scan manual..." 
                             class="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
                     </div>
                 </div>
@@ -147,9 +147,10 @@
             </div>
 
             <!-- Cart Items -->
-            <div id="cart-list" class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 bg-slate-50/50">
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-4 bg-slate-50/50 relative">
+                <div id="cart-list" class="space-y-3"></div>
                 <!-- Empty State -->
-                <div id="cart-empty" class="h-full flex flex-col items-center justify-center text-slate-400 space-y-4 opacity-60">
+                <div id="cart-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 space-y-4 opacity-60 pointer-events-none">
                     <i data-lucide="shopping-cart" class="w-16 h-16 stroke-1"></i>
                     <p class="text-sm">Belum ada barang</p>
                 </div>
@@ -288,17 +289,16 @@
 
             html5QrCode = new Html5Qrcode("reader");
             const config = {
-                fps: 30, // Lebih responsif
+                fps: 10, // FPS rendah lebih stabil dan akurat untuk fokus kamera
                 // QR Box dinamis: 85% lebar layar, tinggi disesuaikan untuk barcode memanjang
                 qrbox: function(viewfinderWidth, viewfinderHeight) {
                     return {
-                        width: Math.floor(viewfinderWidth * 0.90),
-                        height: Math.floor(viewfinderHeight * 0.60)
+                        width: Math.floor(viewfinderWidth * 0.80),
+                        height: Math.floor(viewfinderHeight * 0.50)
                     };
                 },
-                formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.CODE_128 ],
-                // FITUR PRO: Gunakan deteksi native browser jika ada (lebih cepat & support miring)
-                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+                formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.UPC_A ],
+                disableFlip: false
             };
 
             html5QrCode.start({ facingMode: "environment" }, config, (barcode) => {
@@ -356,15 +356,37 @@
             
             playBeep();
 
-            const product = db.find(p => p.id === id);
+            // Normalisasi ID (Mengatasi masalah barcode terbaca beda-beda)
+            // Kadang EAN-13 terbaca sebagai UPC-A (hilang 0 depan) atau sebaliknya
+            let product = db.find(p => p.id === id);
+            
+            if (!product && id.length === 12) {
+                // Coba tambah 0 di depan (UPC-A -> EAN-13)
+                const altId = '0' + id;
+                product = db.find(p => p.id === altId);
+                if (product) id = altId;
+            } else if (!product && id.length === 13 && id.startsWith('0')) {
+                // Coba buang 0 di depan (EAN-13 -> UPC-A)
+                const altId = id.substring(1);
+                product = db.find(p => p.id === altId);
+                if (product) id = altId;
+            }
+
             if (product) {
                 const item = cart.find(c => c.id === id);
                 if (item) item.qty++;
                 else cart.push({ ...product, qty: 1 });
                 renderCart();
                 
-                const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
-                Toast.fire({ icon: 'success', title: `${product.name} +1` });
+                // Tampilkan info barang yang discan dengan jelas (Visual Feedback)
+                Swal.fire({
+                    title: product.name,
+                    text: `Harga: Rp ${product.price.toLocaleString()} | Total Qty: ${item ? item.qty + 1 : 1}`,
+                    icon: 'success',
+                    timer: 1000,
+                    showConfirmButton: false,
+                    backdrop: false // Supaya tidak mengganggu flow scan
+                });
             } else {
                 showAddProductForm(id);
             }
@@ -378,6 +400,17 @@
 
         function playBeep() { 
             document.getElementById('beep-sound').play().catch(e => console.log("Interaksi user dibutuhkan untuk memutar suara.")); 
+        }
+
+        function handleSearchEnter(e) {
+            if (e.key === 'Enter') {
+                const val = e.target.value;
+                if (val) {
+                    processItem(val);
+                    e.target.value = '';
+                    filterProducts();
+                }
+            }
         }
 
         // --- CLOUD SYNC FUNCTIONS ---
