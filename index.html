@@ -3,294 +3,279 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SmartPOS - Pro Version</title>
+    <title>SmartPOS Elite | Premium POS System</title>
+    
+    <!-- Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
         
-        /* Scan Animation */
-        .scanner-container { position: relative; overflow: hidden; border-radius: 20px; }
-        .scan-line {
-            position: absolute; width: 100%; height: 3px;
-            background: rgba(59, 130, 246, 0.7);
-            box-shadow: 0 0 15px 5px rgba(59, 130, 246, 0.5);
-            top: 0; z-index: 10;
-            animation: scan 2s infinite linear;
+        :root {
+            --brand: #6366f1;
+            --bg-dark: #0f172a;
+            --surface: #1e293b;
         }
-        @keyframes scan {
-            0% { top: 0% }
-            100% { top: 100% }
+
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: var(--bg-dark); 
+            color: white;
+            overscroll-behavior: none;
         }
+
+        .glass { 
+            background: rgba(30, 41, 59, 0.7); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+        }
+
+        .active-tab { 
+            color: var(--brand); 
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 16px;
+        }
+
+        /* Scanner Frame Customization */
         #reader { border: none !important; }
-        #reader video { object-fit: cover !important; border-radius: 20px; }
-        .nav-active { color: #2563eb; border-top: 3px solid #2563eb; }
-        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
+        #reader__scan_region video { object-fit: cover !important; border-radius: 24px; }
+        
+        .scan-anim {
+            position: absolute; width: 100%; height: 4px;
+            background: linear-gradient(to right, transparent, var(--brand), transparent);
+            box-shadow: 0 0 20px var(--brand);
+            animation: scanMove 2s infinite ease-in-out;
+            z-index: 20;
+        }
+
+        @keyframes scanMove {
+            0%, 100% { top: 10%; opacity: 0.2; }
+            50% { top: 90%; opacity: 1; }
+        }
+
+        .hide-scroll::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body class="pb-24">
 
-    <!-- App Shell -->
-    <div class="max-w-md mx-auto min-h-screen relative pb-24">
-        
-        <!-- Header -->
-        <header class="p-5 flex justify-between items-center bg-white shadow-sm sticky top-0 z-40">
-            <div>
-                <h1 class="text-2xl font-black text-blue-600 tracking-tighter">Smart<span class="text-gray-900">POS</span></h1>
-                <p id="status-text" class="text-[10px] text-green-500 font-bold uppercase tracking-widest">● System Ready</p>
+    <!-- Top Status Bar -->
+    <header class="p-6 flex justify-between items-center sticky top-0 z-50 bg-slate-950/50 backdrop-blur-md">
+        <div>
+            <h1 class="text-xl font-extrabold tracking-tighter text-indigo-400">ELITE<span class="text-white">POS</span></h1>
+            <p id="date-now" class="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Senin, 12 Januari 2024</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="text-right hidden sm:block">
+                <p class="text-xs text-slate-400 leading-none">Kasir Aktif</p>
+                <p class="text-sm font-bold">Admin Store</p>
             </div>
-            <div class="flex gap-3">
-                <button onclick="switchTab('history')" class="p-2 bg-gray-100 rounded-full"><i data-lucide="history" class="w-5 h-5"></i></button>
-                <button onclick="switchTab('inventory')" class="p-2 bg-gray-100 rounded-full"><i data-lucide="package" class="w-5 h-5"></i></button>
-            </div>
-        </header>
-
-        <!-- Main Content (TABS) -->
-        <main class="p-4">
-            
-            <!-- TAB 1: KASIR -->
-            <section id="tab-pos">
-                <!-- Viewfinder -->
-                <div class="scanner-container bg-black aspect-square mb-6 shadow-2xl border-4 border-white">
-                    <div class="scan-line"></div>
-                    <div id="reader"></div>
-                </div>
-
-                <!-- Shopping Cart -->
-                <div class="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="font-bold text-lg flex items-center gap-2">
-                            <i data-lucide="shopping-cart" class="w-5 h-5 text-blue-500"></i> Keranjang
-                        </h2>
-                        <span id="item-count" class="bg-blue-100 text-blue-600 text-xs font-bold px-3 py-1 rounded-full text-sm">0 Item</span>
-                    </div>
-
-                    <div id="cart-items" class="space-y-4 max-h-60 overflow-y-auto pr-2">
-                        <!-- Items rendered here -->
-                        <div class="text-center py-10">
-                            <i data-lucide="aperture" class="w-12 h-12 mx-auto text-gray-200 mb-2 animate-spin"></i>
-                            <p class="text-gray-400 text-sm">Scan barang untuk memulai...</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- TAB 2: INVENTORY -->
-            <section id="tab-inventory" class="hidden">
-                <div class="bg-white rounded-3xl p-6 shadow-sm">
-                    <h2 class="text-xl font-bold mb-4">Database Barang</h2>
-                    <div class="space-y-3">
-                        <input id="inv-barcode" type="text" placeholder="Scan/Input Barcode" class="w-full p-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500">
-                        <input id="inv-name" type="text" placeholder="Nama Barang" class="w-full p-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500">
-                        <input id="inv-price" type="number" placeholder="Harga (Rp)" class="w-full p-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500">
-                        <button onclick="saveToDB()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 transition">Tambah ke Stok</button>
-                    </div>
-                    <hr class="my-6">
-                    <div id="db-list" class="space-y-3 text-sm"></div>
-                </div>
-            </section>
-
-            <!-- TAB 3: HISTORY -->
-            <section id="tab-history" class="hidden">
-                <div class="bg-white rounded-3xl p-6 shadow-sm">
-                    <h2 class="text-xl font-bold mb-4">Riwayat Transaksi</h2>
-                    <div id="history-list" class="space-y-3"></div>
-                </div>
-            </section>
-        </main>
-
-        <!-- Fixed Bottom Action -->
-        <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto p-4 bg-white/80 backdrop-blur-lg border-t border-gray-100 z-50">
-            <div class="flex justify-between items-center gap-4">
-                <div class="flex-1">
-                    <p class="text-[10px] text-gray-400 font-bold uppercase">Total Tagihan</p>
-                    <p id="grand-total" class="text-2xl font-black text-gray-900 leading-none">Rp 0</p>
-                </div>
-                <button onclick="checkout()" class="flex-[1.5] bg-blue-600 text-white py-4 px-6 rounded-2xl font-bold shadow-lg shadow-blue-200 flex justify-center items-center gap-2 active:scale-95 transition">
-                    <i data-lucide="credit-card" class="w-5 h-5"></i> BAYAR SEKARANG
-                </button>
+            <div class="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center border-2 border-indigo-300 shadow-lg shadow-indigo-500/20">
+                <i data-lucide="user" class="w-5 h-5"></i>
             </div>
         </div>
+    </header>
+
+    <!-- Main Screens -->
+    <main class="max-w-2xl mx-auto px-4 mt-2">
+        
+        <!-- DASHBOARD TAB -->
+        <section id="tab-dashboard" class="space-y-6">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass p-5 rounded-[2rem]">
+                    <i data-lucide="trending-up" class="text-emerald-400 mb-2"></i>
+                    <p class="text-xs text-slate-400">Omzet Hari Ini</p>
+                    <h3 id="stat-revenue" class="text-xl font-bold">Rp 0</h3>
+                </div>
+                <div class="glass p-5 rounded-[2rem]">
+                    <i data-lucide="shopping-bag" class="text-indigo-400 mb-2"></i>
+                    <p class="text-xs text-slate-400">Total Transaksi</p>
+                    <h3 id="stat-count" class="text-xl font-bold">0</h3>
+                </div>
+            </div>
+            
+            <div class="glass p-6 rounded-[2rem]">
+                <h4 class="text-sm font-bold mb-4 flex items-center gap-2">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Grafik Penjualan 7 Hari
+                </h4>
+                <canvas id="salesChart" height="150"></canvas>
+            </div>
+        </section>
+
+        <!-- POS / SCANNER TAB -->
+        <section id="tab-pos" class="hidden space-y-6">
+            <div class="relative rounded-[2.5rem] overflow-hidden border-4 border-slate-800 shadow-2xl aspect-square bg-slate-900">
+                <div class="scan-anim"></div>
+                <div id="reader"></div>
+                <div class="absolute bottom-6 left-0 right-0 z-30 flex justify-center">
+                    <div class="px-4 py-2 bg-black/50 backdrop-blur-md rounded-full text-[10px] font-bold tracking-widest border border-white/10 uppercase">
+                        Kamera Aktif: Auto-Focus Ready
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <div class="flex-1 glass rounded-2xl flex items-center px-4">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-500 mr-3"></i>
+                    <input id="search-input" type="text" placeholder="Cari nama atau barcode..." class="bg-transparent border-none outline-none text-sm w-full py-4">
+                </div>
+                <button onclick="handleSearch()" class="px-6 bg-indigo-600 rounded-2xl font-bold shadow-lg shadow-indigo-600/30">CARI</button>
+            </div>
+
+            <div id="cart-list" class="space-y-3">
+                <!-- Cart items load here -->
+            </div>
+        </section>
+
+        <!-- INVENTORY TAB -->
+        <section id="tab-inventory" class="hidden space-y-6">
+            <div class="glass p-6 rounded-[2.5rem]">
+                <h2 class="text-xl font-extrabold mb-6">Tambah Produk Baru</h2>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <input id="inv-barcode" type="text" placeholder="Barcode ID" class="col-span-2 p-4 bg-slate-800/50 rounded-2xl border border-slate-700 outline-none focus:border-indigo-500">
+                        <input id="inv-name" type="text" placeholder="Nama Barang" class="col-span-2 p-4 bg-slate-800/50 rounded-2xl border border-slate-700 outline-none focus:border-indigo-500">
+                        <input id="inv-price" type="number" placeholder="Harga Jual" class="p-4 bg-slate-800/50 rounded-2xl border border-slate-700 outline-none">
+                        <input id="inv-stock" type="number" placeholder="Stok Awal" class="p-4 bg-slate-800/50 rounded-2xl border border-slate-700 outline-none">
+                    </div>
+                    <button onclick="saveProduct()" class="w-full py-4 bg-indigo-600 rounded-2xl font-black shadow-xl">SIMPAN KE DATABASE</button>
+                </div>
+            </div>
+            
+            <div id="master-list" class="space-y-3">
+                <!-- Master products load here -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Bottom Action & Navigation -->
+    <div class="fixed bottom-0 left-0 right-0 z-[60] px-4 pb-6 pt-2 bg-gradient-to-t from-slate-950 to-transparent">
+        
+        <!-- Summary Floating Card (Only on POS Tab) -->
+        <div id="checkout-card" class="mb-4 glass rounded-3xl p-5 flex justify-between items-center shadow-2xl border-indigo-500/30 hidden">
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Belanja</p>
+                <h2 id="total-val" class="text-2xl font-black text-white">Rp 0</h2>
+            </div>
+            <button onclick="processPayment()" class="px-8 py-4 bg-indigo-600 rounded-2xl font-bold text-sm shadow-lg shadow-indigo-600/40 active:scale-95 transition-transform">
+                BAYAR SEKARANG
+            </button>
+        </div>
+
+        <!-- Tab Bar -->
+        <nav class="glass rounded-[2rem] flex justify-around items-center p-2 border-white/5 shadow-2xl">
+            <button onclick="switchTab('dashboard', this)" class="flex flex-col items-center p-3 active-tab transition-all">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold mt-1">Home</span>
+            </button>
+            <button onclick="switchTab('pos', this)" class="flex flex-col items-center p-3 transition-all text-slate-400">
+                <i data-lucide="scan-barcode" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold mt-1">Kasir</span>
+            </button>
+            <button onclick="switchTab('inventory', this)" class="flex flex-col items-center p-3 transition-all text-slate-400">
+                <i data-lucide="package" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold mt-1">Stok</span>
+            </button>
+        </nav>
     </div>
 
-    <!-- Beep Audio -->
-    <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3"></audio>
+    <!-- Payment Sound -->
+    <audio id="beep-snd" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3"></audio>
 
     <script>
-        // --- DATA & STATE ---
-        let products = JSON.parse(localStorage.getItem('pro_pos_products')) || [
-            { id: "899123", name: "Indomie Goreng", price: 3500 },
-            { id: "123456", name: "Kopi Kenangan", price: 18000 }
-        ];
+        // --- DATA ENGINE ---
+        let db = JSON.parse(localStorage.getItem('elite_pos_db')) || [];
         let cart = [];
-        let history = JSON.parse(localStorage.getItem('pro_pos_history')) || [];
-
-        // --- SCANNER SETUP ---
+        let logs = JSON.parse(localStorage.getItem('elite_pos_logs')) || [];
+        
+        let salesChart;
         const scanner = new Html5Qrcode("reader");
-        const config = { fps: 20, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
 
+        // --- INIT APP ---
+        window.onload = () => {
+            lucide.createIcons();
+            initChart();
+            updateStats();
+            document.getElementById('date-now').innerText = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        };
+
+        function switchTab(tab, el) {
+            // UI Update
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.classList.remove('active-tab', 'text-indigo-400');
+                btn.classList.add('text-slate-400');
+            });
+            el.classList.add('active-tab');
+            el.classList.remove('text-slate-400');
+
+            // Tab visibility
+            ['dashboard', 'pos', 'inventory'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
+            document.getElementById('tab-'+tab).classList.remove('hidden');
+            
+            // Scanner Control
+            if(tab === 'pos') {
+                startScanner();
+                document.getElementById('checkout-card').classList.remove('hidden');
+            } else {
+                scanner.isScanning && scanner.stop();
+                document.getElementById('checkout-card').classList.add('hidden');
+            }
+
+            if(tab === 'inventory') renderInventory();
+            if(tab === 'dashboard') updateStats();
+        }
+
+        // --- SCANNER LOGIC ---
         function startScanner() {
+            const config = { fps: 30, qrbox: { width: 250, height: 200 } };
             scanner.start({ facingMode: "environment" }, config, (text) => {
-                handleScan(text);
-                // Pause scanner temporarily for feedback
+                addToCart(text);
+                playSuccess();
                 scanner.pause();
                 setTimeout(() => scanner.resume(), 1500);
-            }).catch(err => console.error("Kamera Error:", err));
+            }).catch(e => console.log("Scanner Error"));
         }
 
-        function handleScan(barcode) {
-            const product = products.find(p => p.id === barcode);
-            playFeedback();
-            
-            if (product) {
-                const inCart = cart.find(i => i.id === barcode);
-                if (inCart) { inCart.qty++; } 
-                else { cart.push({ ...product, qty: 1 }); }
-                renderCart();
-            } else {
+        // --- CORE FUNCTIONS ---
+        function addToCart(barcode) {
+            const product = db.find(p => p.id === barcode);
+            if(!product) {
                 Swal.fire({
-                    title: 'Barang Baru!',
-                    text: `Barcode ${barcode} belum terdaftar. Daftarkan?`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Ya, Input'
-                }).then((res) => {
-                    if(res.isConfirmed) {
-                        switchTab('inventory');
-                        document.getElementById('inv-barcode').value = barcode;
-                    }
-                });
-            }
-        }
-
-        // --- UI LOGIC ---
-        function renderCart() {
-            const container = document.getElementById('cart-items');
-            const totalEl = document.getElementById('grand-total');
-            const countEl = document.getElementById('item-count');
-            
-            if(cart.length === 0) {
-                container.innerHTML = `<div class="text-center py-10 text-gray-400 text-sm italic">Kosong</div>`;
-                totalEl.innerText = "Rp 0";
-                countEl.innerText = "0 Item";
+                    title: 'Barang Tidak Ada',
+                    text: `Barcode ${barcode} belum didaftarkan.`,
+                    icon: 'warning',
+                    confirmButtonText: 'Daftarkan Sekarang'
+                }).then(r => { if(r.isConfirmed) switchTab('inventory', document.querySelectorAll('nav button')[2]); });
                 return;
             }
 
-            let total = 0;
-            container.innerHTML = cart.map((item, idx) => {
-                total += item.price * item.qty;
-                return `
-                <div class="flex justify-between items-center animate-fade-in">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-bold">${item.qty}x</div>
-                        <div>
-                            <p class="font-bold text-sm">${item.name}</p>
-                            <p class="text-xs text-gray-400">@ Rp ${item.price.toLocaleString()}</p>
-                        </div>
-                    </div>
-                    <div class="text-right flex items-center gap-3">
-                        <p class="font-bold text-sm">Rp ${(item.price * item.qty).toLocaleString()}</p>
-                        <button onclick="removeItem(${idx})" class="text-gray-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                    </div>
-                </div>`;
-            }).join('');
-            
-            totalEl.innerText = `Rp ${total.toLocaleString()}`;
-            countEl.innerText = `${cart.length} Item`;
-            lucide.createIcons();
-        }
+            if(product.stock <= 0) return Swal.fire('Stok Habis!', product.name + ' tidak tersedia.', 'error');
 
-        function removeItem(idx) {
-            cart.splice(idx, 1);
+            const item = cart.find(i => i.id === barcode);
+            if(item) {
+                if(item.qty < product.stock) item.qty++;
+            } else {
+                cart.push({ ...product, qty: 1 });
+            }
             renderCart();
         }
 
-        function switchTab(tabId) {
-            document.getElementById('tab-pos').classList.add('hidden');
-            document.getElementById('tab-inventory').classList.add('hidden');
-            document.getElementById('tab-history').classList.add('hidden');
-            document.getElementById('tab-' + tabId).classList.remove('hidden');
-            if(tabId === 'inventory') renderDB();
-            if(tabId === 'history') renderHistory();
-        }
-
-        function saveToDB() {
-            const id = document.getElementById('inv-barcode').value;
-            const name = document.getElementById('inv-name').value;
-            const price = parseInt(document.getElementById('inv-price').value);
-
-            if(!id || !name || !price) return alert("Lengkapi data!");
+        function renderCart() {
+            const list = document.getElementById('cart-list');
+            let total = 0;
             
-            products.push({ id, name, price });
-            localStorage.setItem('pro_pos_products', JSON.stringify(products));
-            Swal.fire('Berhasil', 'Produk tersimpan', 'success');
-            renderDB();
-        }
+            if(cart.length === 0) {
+                list.innerHTML = `<div class="p-10 text-center text-slate-500 italic">Pindai barang di atas...</div>`;
+                document.getElementById('total-val').innerText = 'Rp 0';
+                return;
+            }
 
-        function renderDB() {
-            const list = document.getElementById('db-list');
-            list.innerHTML = products.map(p => `
-                <div class="p-3 bg-gray-50 rounded-xl flex justify-between">
-                    <span><b>[${p.id}]</b> ${p.name}</span>
-                    <span class="font-bold text-blue-600">Rp ${p.price.toLocaleString()}</span>
-                </div>
-            `).join('');
-        }
-
-        function renderHistory() {
-            const list = document.getElementById('history-list');
-            list.innerHTML = history.length ? history.reverse().map(h => `
-                <div class="p-3 border-b">
-                    <div class="flex justify-between text-xs text-gray-400 mb-1">
-                        <span>${h.date}</span>
-                        <span>#${h.id}</span>
-                    </div>
-                    <div class="flex justify-between font-bold">
-                        <span>Total Belanja</span>
-                        <span class="text-green-600">Rp ${h.total.toLocaleString()}</span>
-                    </div>
-                </div>
-            `).join('') : '<p class="text-center text-gray-400 italic">Belum ada transaksi.</p>';
-        }
-
-        function checkout() {
-            if(cart.length === 0) return;
-            
-            const total = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
-            const trxId = Math.floor(Math.random() * 1000000);
-            
-            Swal.fire({
-                title: 'Konfirmasi Bayar',
-                text: `Total Tagihan: Rp ${total.toLocaleString()}`,
-                icon: 'success',
-                showCancelButton: true,
-                confirmButtonText: 'Selesai & Cetak'
-            }).then((res) => {
-                if(res.isConfirmed) {
-                    // Save to history
-                    history.push({ id: trxId, total, date: new Date().toLocaleString() });
-                    localStorage.setItem('pro_pos_history', JSON.stringify(history));
-                    
-                    // Reset
-                    cart = [];
-                    renderCart();
-                    Swal.fire('Sukses', 'Transaksi Berhasil Dicatat', 'success');
-                }
-            });
-        }
-
-        function playFeedback() {
-            document.getElementById('beep-sound').play();
-            if (navigator.vibrate) navigator.vibrate(100);
-        }
-
-        // Init
-        lucide.createIcons();
-        startScanner();
-
-    </script>
-</body>
-</html>
+            list.innerHTML = cart.map((item, idx) => {
+                total += item.price * item.qty;
+                return `
+                <div class="glass p-4 rounded-3xl flex justify-between items-center animate-fade-in">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center font-black text-indigo-400">${item.qty}x</div>
