@@ -214,21 +214,60 @@
             
             const config = { fps: 20, qrbox: { width: 250, height: 200 } };
             
-            // Mencoba paksa kamera belakang
-            scanner.start({ facingMode: "environment" }, config, (decodedText) => {
-                const now = Date.now();
-                // Cegah scan berulang cepat (Cooldown 2 detik untuk kode yang sama)
-                if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
-                
-                lastScanCode = decodedText;
-                lastScanTime = now;
+            // Logika untuk memilih kamera utama (bukan ultrawide)
+            Html5Qrcode.getCameras().then(cameras => {
+                let cameraId = null;
+                if (cameras && cameras.length) {
+                    const rearCameras = cameras.filter(camera => camera.facing === 'environment');
+                    if (rearCameras.length > 0) {
+                        // Heuristik: Cari kamera yang BUKAN ultrawide. Jika tidak ketemu, pakai yg terakhir.
+                        const mainCamera = rearCameras.find(c => c.label.toLowerCase().indexOf('wide') === -1);
+                        cameraId = mainCamera ? mainCamera.id : rearCameras[rearCameras.length - 1].id;
+                        console.log(`Using camera ID: ${cameraId}`);
+                    }
+                }
 
-                handleScanKasir(decodedText);
-                if(navigator.vibrate) navigator.vibrate(70);
+                const constraints = cameraId ? { deviceId: { exact: cameraId } } : { facingMode: "environment" };
+
+                scanner.start(constraints, config, (decodedText) => {
+                    const now = Date.now();
+                    if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
+                    lastScanCode = decodedText;
+                    lastScanTime = now;
+                    handleScanKasir(decodedText);
+                    if(navigator.vibrate) navigator.vibrate(70);
+                }).catch(err => {
+                    if(err?.toString().includes("already")) return;
+                    console.warn("Gagal dengan kamera spesifik, mencoba default.", err);
+                    // Fallback ke default jika kamera spesifik gagal
+                    scanner.start({ facingMode: "environment" }, config, (decodedText) => {
+                        const now = Date.now();
+                        if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
+                        lastScanCode = decodedText;
+                        lastScanTime = now;
+                        handleScanKasir(decodedText);
+                        if(navigator.vibrate) navigator.vibrate(70);
+                    }).catch(e => {
+                        console.error("Gagal total membuka kamera.", e);
+                        document.getElementById('camera-prompt').style.display = 'flex';
+                    });
+                });
+
             }).catch(err => {
-                if(err?.toString().includes("already")) return;
-                console.log("Gagal buka kamera: " + err);
-                document.getElementById('camera-prompt').style.display = 'flex';
+                // Jika getCameras() gagal, langsung pakai metode lama
+                console.warn("Tidak bisa mendapatkan list kamera, menggunakan metode default.", err);
+                scanner.start({ facingMode: "environment" }, config, (decodedText) => {
+                    const now = Date.now();
+                    if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
+                    lastScanCode = decodedText;
+                    lastScanTime = now;
+                    handleScanKasir(decodedText);
+                    if(navigator.vibrate) navigator.vibrate(70);
+                }).catch(e => {
+                    if(e?.toString().includes("already")) return;
+                    console.error("Gagal membuka kamera (fallback).", e);
+                    document.getElementById('camera-prompt').style.display = 'flex';
+                });
             });
         }
 
