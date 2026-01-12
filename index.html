@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -406,12 +407,6 @@
                 // Menambahkan aspek rasio standar (4:3) untuk menghindari lensa ultra-wide
                 aspectRatio: 1.333334
             };
-
-            // Fix iPhone: Paksa resolusi tinggi agar scan jarak jauh tajam & responsif
-            const resConstraints = {
-                width: { min: 640, ideal: 1280, max: 1920 },
-                height: { min: 480, ideal: 720, max: 1080 }
-            };
             
             // Fungsi Helper untuk mengaktifkan UI Zoom/Flash setelah kamera jalan
             const onCameraReady = () => {
@@ -474,8 +469,8 @@
                 }
 
                 const constraints = selectedCameraId ? 
-                    { deviceId: { exact: selectedCameraId }, ...resConstraints } : 
-                    { facingMode: "environment", ...resConstraints };
+                    { deviceId: { exact: selectedCameraId } } : 
+                    { facingMode: "environment" };
 
                 // Eksekusi Start dengan ID spesifik
                 scanner.start(constraints, config, (decodedText) => {
@@ -492,7 +487,7 @@
                 .catch(err => {
                     console.error("Gagal start kamera spesifik, mencoba default environment", err);
                     // Fallback terakhir: Mode Environment standar
-                    scanner.start({ facingMode: "environment", ...resConstraints }, config, (decodedText) => {
+                    scanner.start({ facingMode: "environment" }, config, (decodedText) => {
                         handleScanKasir(decodedText);
                     })
                     .then(() => onCameraReady())
@@ -504,7 +499,7 @@
             }).catch(err => {
                 console.error("Gagal mendapatkan daftar kamera (izin ditolak?)", err);
                 // Fallback jika getCameras gagal total
-                scanner.start({ facingMode: "environment", ...resConstraints }, config, (decodedText) => {
+                scanner.start({ facingMode: "environment" }, config, (decodedText) => {
                     handleScanKasir(decodedText);
                 })
                 .then(() => onCameraReady())
@@ -619,32 +614,12 @@
         }
 
         // FUNGSI SUARA (TEXT-TO-SPEECH)
-        let currentUtterance = null; // Fix iOS: Global variable agar tidak kena Garbage Collection
-
-        // Fix iOS: Unlock Audio Context pada interaksi pertama user
-        const unlockAudio = () => {
-            if ('speechSynthesis' in window) {
-                const u = new SpeechSynthesisUtterance(" ");
-                u.volume = 0;
-                window.speechSynthesis.speak(u);
-            }
-            document.removeEventListener('click', unlockAudio);
-            document.removeEventListener('touchstart', unlockAudio);
-        };
-        document.addEventListener('click', unlockAudio);
-        document.addEventListener('touchstart', unlockAudio);
-
         function ucapkan(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); // Hentikan suara sebelumnya jika ada
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'id-ID'; // Set bahasa ke Indonesia
                 utterance.rate = 1.1; // Kecepatan bicara
-                
-                // Fix iOS: Simpan referensi object utterance
-                currentUtterance = utterance;
-                utterance.onend = () => { currentUtterance = null; };
-                
                 window.speechSynthesis.speak(utterance);
             }
         }
