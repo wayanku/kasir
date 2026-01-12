@@ -1,4 +1,4 @@
-const CACHE_NAME = 'autopos-v150';
+const CACHE_NAME = 'autopos-v60';
 const ASSETS = [
   'index.html',
   'https://cdn.tailwindcss.com',
