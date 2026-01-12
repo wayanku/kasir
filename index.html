@@ -369,6 +369,21 @@
             localStorage.setItem('gudang_data', JSON.stringify(gudang));
             alert("Produk Disimpan");
             renderStok();
+            document.getElementById('f-sku').value = '';
+            document.getElementById('f-nama').value = '';
+            document.getElementById('f-harga').value = '';
+            document.getElementById('f-stok').value = '';
+        }
+
+        // FUNGSI SUARA (TEXT-TO-SPEECH)
+        function ucapkan(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Hentikan suara sebelumnya jika ada
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'id-ID'; // Set bahasa ke Indonesia
+                utterance.rate = 1.1; // Kecepatan bicara
+                window.speechSynthesis.speak(utterance);
+            }
         }
 
         // LOGIK SCAN KASIR BARU
@@ -381,7 +396,8 @@
                 document.getElementById('modal-unknown').classList.remove('hidden');
                 if(scanner) scanner.pause(); // Pause scanner biar gak scan terus
             } else {
-                // Produk ada -> Masuk tempCart (pisah-pisah)
+                // Produk ada -> Ucapkan nama & Masuk tempCart
+                ucapkan(produk.nama);
                 tempCart.push({
                     ...produk,
                     tempId: Date.now() + Math.random() // ID unik untuk list sementara
