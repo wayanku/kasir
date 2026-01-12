@@ -6,17 +6,20 @@
     <title>SmartPOS Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f2f2f7; /* iOS System Gray 6 */
-            color: #1c1c1e; /* iOS System Gray 1 */
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9; /* Slate 100 */
+            color: #0f172a; /* Slate 900 */
             -webkit-font-smoothing: antialiased;
+            overflow: hidden; /* App-like feel */
         }
 
         /* Scanner Frame iOS Style */
@@ -59,131 +62,230 @@
             margin: 0; 
         }
         input[type=number] { -moz-appearance: textfield; }
+
+        /* Print Styling for Thermal Printer */
+        @media print {
+            @page { margin: 0; size: auto; }
+            body * { visibility: hidden; }
+            #receipt-print-area, #receipt-print-area * { visibility: visible; }
+            #receipt-print-area { position: absolute; left: 0; top: 0; width: 100%; }
+        }
     </style>
 </head>
-<body class="min-h-screen">
+<body class="h-screen flex flex-col md:flex-row overflow-hidden">
 
-    <!-- Header Apple Style -->
-    <header class="ios-blur sticky top-0 z-30 px-4 sm:px-6 py-3 flex justify-between items-center border-b border-gray-300/80">
-        <div>
-            <h1 class="text-2xl font-extrabold tracking-tight">SmartPOS Pro</h1>
+    <!-- SIDEBAR (Navigation) -->
+    <aside class="hidden md:flex flex-col w-20 bg-slate-900 text-white items-center py-6 gap-6 z-50 shadow-xl">
+        <div class="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/50">
+            <i data-lucide="store" class="w-8 h-8 text-white"></i>
         </div>
-        <div class="flex items-center gap-2">
-            <button onclick="location.reload()" class="text-blue-500 font-semibold text-sm">Reset Sesi</button>
-            <button onclick="toggleStockView()" class="md:hidden bg-gray-200 p-2 rounded-full btn-active">
-                <i data-lucide="package"></i>
-            </button>
+        <nav class="flex-1 flex flex-col gap-4 w-full px-2">
+            <button onclick="switchTab('pos')" class="nav-btn active p-3 rounded-xl hover:bg-slate-800 transition flex justify-center text-blue-400 bg-slate-800"><i data-lucide="layout-grid"></i></button>
+            <button onclick="switchTab('stock')" class="nav-btn p-3 rounded-xl hover:bg-slate-800 transition flex justify-center text-slate-400"><i data-lucide="package"></i></button>
+            <button onclick="openSettings()" class="nav-btn p-3 rounded-xl hover:bg-slate-800 transition flex justify-center text-slate-400"><i data-lucide="settings"></i></button>
+        </nav>
+        <div class="mt-auto">
+            <button onclick="location.reload()" class="p-3 rounded-xl hover:bg-red-900/50 text-red-400 transition"><i data-lucide="refresh-cw"></i></button>
         </div>
-    </header>
+    </aside>
 
-    <div class="md:grid md:grid-cols-2 md:gap-6 max-w-7xl mx-auto">
-        <!-- Kolom Kiri: Transaksi -->
-        <main class="md:h-[calc(100vh-65px)] md:overflow-y-auto custom-scrollbar flex flex-col">
-            <div class="p-4 space-y-4 flex-1">
-                <!-- Scanner Viewport -->
-                <div class="relative w-full max-w-md mx-auto aspect-square bg-gray-800 rounded-[40px] shadow-xl overflow-hidden border-4 border-white">
-                    <div id="reader"></div>
+    <!-- MAIN CONTENT AREA -->
+    <div class="flex-1 flex flex-col md:flex-row h-full relative">
+        
+        <!-- LEFT PANEL: CATALOG & SCANNER -->
+        <main id="panel-pos" class="flex-1 flex flex-col h-full bg-slate-50 relative">
+            <!-- Top Bar -->
+            <header class="bg-white h-16 border-b border-slate-200 flex items-center px-6 justify-between shrink-0">
+                <div class="flex items-center gap-4 w-full max-w-xl">
+                    <h1 class="text-xl font-bold text-slate-800 hidden md:block">Kasir</h1>
+                    <div class="relative flex-1">
+                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                        <input type="text" id="search-input" onkeyup="filterProducts()" placeholder="Cari nama barang atau kode..." 
+                            class="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500 outline-none transition">
+                    </div>
+                </div>
+                <button onclick="toggleScanner()" class="md:hidden p-2 bg-blue-100 text-blue-600 rounded-full"><i data-lucide="scan-line"></i></button>
+            </header>
+
+            <!-- Product Grid & Scanner Container -->
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
+                
+                <!-- Scanner (Hidden by default on Desktop, Toggleable) -->
+                <div id="scanner-container" class="hidden mb-6 bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-800 relative max-w-sm mx-auto aspect-video">
+                    <div id="reader" class="w-full h-full"></div>
+                    <button onclick="toggleScanner()" class="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full z-20"><i data-lucide="x"></i></button>
                     <div class="scan-laser"></div>
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div class="w-[75%] h-[35%] border-2 border-white/40 rounded-2xl"></div>
-                    </div>
                 </div>
 
-                <!-- Quick Manual Input -->
-                <div class="max-w-md mx-auto ios-blur p-2 rounded-3xl flex items-center shadow-sm border border-gray-200">
-                    <input id="manual-code" type="number" pattern="\d*" placeholder="Ketik Barcode Manual..." 
-                        class="flex-1 bg-transparent px-4 py-3 outline-none text-sm font-medium">
-                    <button onclick="handleManual()" class="bg-black text-white px-6 py-3 rounded-2xl font-bold text-xs btn-active">
-                        ADD
-                    </button>
+                <!-- Categories (Optional Placeholder) -->
+                <div class="flex gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
+                    <button class="px-4 py-2 bg-slate-800 text-white rounded-full text-xs font-bold shadow-md whitespace-nowrap">Semua Barang</button>
+                    <button class="px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-full text-xs font-bold hover:bg-slate-50 whitespace-nowrap">Makanan</button>
+                    <button class="px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-full text-xs font-bold hover:bg-slate-50 whitespace-nowrap">Minuman</button>
                 </div>
 
-                <!-- Cart List -->
-                <div class="max-w-md mx-auto space-y-3">
-                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest px-2">Daftar Belanja</h3>
-                    <div id="cart-list" class="space-y-2 pb-40 md:pb-4">
-                        <div id="cart-placeholder" class="bg-white/80 p-10 rounded-[30px] text-center text-gray-400 italic text-sm">
-                            Scan barang untuk memulai...
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Bottom Action Card (Apple Style) -->
-            <div class="sticky bottom-0 left-0 right-0 p-4 ios-blur border-t border-gray-200 safe-pb z-20">
-                <div class="max-w-md mx-auto flex justify-between items-center bg-white p-4 rounded-[32px] shadow-lg">
-                    <div>
-                        <p class="text-[10px] text-gray-400 font-bold uppercase leading-none mb-1">Total</p>
-                        <h2 id="grand-total" class="text-2xl font-black tracking-tighter">Rp 0</h2>
-                    </div>
-                    <button onclick="showCheckoutOptions()" class="bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold text-sm btn-active shadow-lg shadow-blue-200">
-                        BAYAR
-                    </button>
+                <!-- Grid Items -->
+                <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <!-- Items injected via JS -->
                 </div>
             </div>
         </main>
 
-        <!-- Kolom Kanan: Manajemen Stok -->
-        <aside id="stock-view" class="fixed inset-0 bg-gray-100 z-40 md:z-auto md:static md:h-[calc(100vh-65px)] md:overflow-y-auto custom-scrollbar p-4 md:p-6 space-y-4 transform translate-x-full md:transform-none transition-transform duration-300 ease-in-out">
-            <div class="flex justify-between items-center">
-                <h2 class="text-xl font-bold">Kelola Stok</h2>
-                <button onclick="toggleStockView()" class="md:hidden text-gray-500 btn-active"><i data-lucide="x"></i></button>
+        <!-- RIGHT PANEL: CART -->
+        <aside class="w-full md:w-96 bg-white border-l border-slate-200 flex flex-col h-[40vh] md:h-full shadow-2xl md:shadow-none z-40 rounded-t-[30px] md:rounded-none fixed bottom-0 md:relative transition-transform duration-300">
+            <!-- Cart Header -->
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-white rounded-t-[30px] md:rounded-none">
+                <h2 class="font-bold text-lg text-slate-800">Keranjang</h2>
+                <div class="flex gap-2">
+                    <button onclick="clearCart()" class="text-red-500 hover:bg-red-50 p-2 rounded-lg text-xs font-bold transition">Hapus</button>
+                    <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold" id="cart-badge">0 Item</span>
+                </div>
             </div>
-            
-            <button onclick="showAddProductForm()" class="w-full flex items-center justify-center gap-2 bg-blue-500 text-white font-bold py-3 px-4 rounded-2xl btn-active">
-                <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                <span>Tambah Barang Baru</span>
-            </button>
 
-            <div class="space-y-2" id="stock-list">
-                <!-- Daftar stok akan dirender di sini -->
+            <!-- Cart Items -->
+            <div id="cart-list" class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 bg-slate-50/50">
+                <!-- Empty State -->
+                <div id="cart-empty" class="h-full flex flex-col items-center justify-center text-slate-400 space-y-4 opacity-60">
+                    <i data-lucide="shopping-cart" class="w-16 h-16 stroke-1"></i>
+                    <p class="text-sm">Belum ada barang</p>
+                </div>
+            </div>
+
+            <!-- Cart Footer (Totals & Action) -->
+            <div class="p-5 bg-white border-t border-slate-200 space-y-4 safe-pb">
+                <div class="space-y-2">
+                    <div class="flex justify-between text-slate-500 text-sm">
+                        <span>Subtotal</span>
+                        <span id="sub-total">Rp 0</span>
+                    </div>
+                    <div class="flex justify-between items-end">
+                        <span class="font-bold text-slate-800">Total Tagihan</span>
+                        <span id="grand-total" class="font-black text-2xl text-blue-600">Rp 0</span>
+                    </div>
+                </div>
+                <button onclick="showPaymentModal()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-slate-300 transition btn-active flex justify-between px-6 items-center">
+                    <span>Bayar</span>
+                    <i data-lucide="arrow-right"></i>
+                </button>
             </div>
         </aside>
+
+        <!-- STOCK MANAGEMENT PANEL (Hidden by default) -->
+        <div id="panel-stock" class="hidden absolute inset-0 bg-slate-50 z-50 flex flex-col">
+            <header class="bg-white h-16 border-b border-slate-200 flex items-center px-6 justify-between">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="database" class="text-blue-600"></i> Manajemen Stok</h2>
+                <button onclick="switchTab('pos')" class="md:hidden p-2 bg-slate-100 rounded-full"><i data-lucide="x"></i></button>
+            </header>
+            <div class="p-6 overflow-y-auto custom-scrollbar">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <button onclick="showAddProductForm()" class="bg-blue-600 text-white p-4 rounded-2xl shadow-lg shadow-blue-200 flex flex-col items-center gap-2 btn-active">
+                        <i data-lucide="plus-circle"></i> <span class="font-bold text-sm">Tambah Barang</span>
+                    </button>
+                    <button onclick="syncStockToCloud()" class="bg-green-600 text-white p-4 rounded-2xl shadow-lg shadow-green-200 flex flex-col items-center gap-2 btn-active">
+                        <i data-lucide="cloud-upload"></i> <span class="font-bold text-sm">Sync Cloud</span>
+                    </button>
+                </div>
+                <div id="stock-list" class="space-y-2"></div>
+            </div>
+        </div>
+
     </div>
+
+    <!-- Hidden Print Area -->
+    <div id="receipt-print-area" class="hidden"></div>
 
     <!-- Beep Sound -->
     <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3"></audio>
 
     <script>
         const DB_KEY = 'smartpos_pro_db';
+        const URL_KEY = 'smartpos_gscript_url';
+        
         let db = JSON.parse(localStorage.getItem(DB_KEY)) || [
-            // Contoh data awal
             {id: "8999909001013", name: "Lada Hitam Bubuk", price: 2500, stock: 100},
             {id: "8992753111034", name: "Kopi Kapal Api", price: 1500, stock: 50},
+            {id: "1001", name: "Nasi Goreng", price: 15000, stock: 100},
+            {id: "1002", name: "Es Teh Manis", price: 5000, stock: 100},
         ];
         let cart = [];
         let html5QrCode;
+        let googleScriptUrl = localStorage.getItem(URL_KEY);
+        let barcodeBuffer = ""; // Untuk USB Scanner
+        let lastKeyTime = Date.now();
 
         // --- INIT & CORE FUNCTIONS ---
         document.addEventListener('DOMContentLoaded', () => {
-            initScanner();
+            // initScanner(); // Scanner nyala manual atau di mobile
             renderStockList();
+            renderProductGrid();
             lucide.createIcons();
+            
+            // Listener untuk USB Scanner (Keyboard Emulation)
+            document.addEventListener('keydown', handleGlobalKeydown);
         });
 
+        // --- SCANNER LOGIC (HYBRID: CAMERA + USB) ---
         function initScanner() {
+            if(html5QrCode && html5QrCode.isScanning) return;
+
             html5QrCode = new Html5Qrcode("reader");
             const config = {
                 fps: 25,
                 qrbox: { width: 280, height: 140 },
                 aspectRatio: 1.0,
-                formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8 ]
+                formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.CODE_128 ],
+                // FITUR PRO: Gunakan deteksi native browser jika ada (lebih cepat & support miring)
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
             };
 
-            setTimeout(() => {
-                html5QrCode.start({ facingMode: "environment" }, config, (barcode) => {
-                    processItem(barcode);
-                }, (errorMessage) => {
-                    // Abaikan error, ini akan terus terpanggil saat tidak ada QR terdeteksi
-                }).catch(err => {
-                    console.error(`Tidak dapat memulai scanner`, err);
-                    document.getElementById('reader').innerHTML = `<div class="text-white/50 p-4 text-center text-xs">Kamera tidak dapat diakses. Izinkan akses kamera pada browser Anda.</div>`;
-                });
-            }, 500);
+            html5QrCode.start({ facingMode: "environment" }, config, (barcode) => {
+                processItem(barcode);
+            }, (errorMessage) => {
+                // Ignore errors
+            }).catch(err => {
+                console.error(`Scanner Error`, err);
+                Swal.fire('Kamera Error', 'Pastikan izin kamera diberikan.', 'error');
+            });
+        }
+
+        function toggleScanner() {
+            const container = document.getElementById('scanner-container');
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                initScanner();
+            } else {
+                container.classList.add('hidden');
+                if (html5QrCode) {
+                    html5QrCode.stop().then(() => html5QrCode.clear());
+                }
+            }
+        }
+
+        // Logic untuk menangkap input dari USB Scanner (yang bertindak sebagai keyboard cepat)
+        function handleGlobalKeydown(e) {
+            const target = e.target;
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+            const currentTime = Date.now();
+            if (currentTime - lastKeyTime > 100) {
+                barcodeBuffer = ""; // Reset jika jeda terlalu lama (bukan scanner)
+            }
+            lastKeyTime = currentTime;
+
+            if (e.key === 'Enter') {
+                if (barcodeBuffer.length > 2) {
+                    processItem(barcodeBuffer);
+                    barcodeBuffer = "";
+                }
+            } else if (e.key.length === 1) {
+                barcodeBuffer += e.key;
+            }
         }
 
         function processItem(id) {
-            html5QrCode.pause();
+            // Jika pakai kamera, pause sebentar biar gak double scan
+            if(html5QrCode && html5QrCode.isScanning) html5QrCode.pause();
+            
             playBeep();
 
             const product = db.find(p => p.id === id);
@@ -192,34 +294,100 @@
                 if (item) item.qty++;
                 else cart.push({ ...product, qty: 1 });
                 renderCart();
+                
+                const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1000 });
+                Toast.fire({ icon: 'success', title: `${product.name} +1` });
             } else {
                 showAddProductForm(id);
             }
-            setTimeout(() => html5QrCode.resume(), 1000);
-        }
-
-        function handleManual() {
-            const code = document.getElementById('manual-code').value;
-            if (code) {
-                processItem(code);
-                document.getElementById('manual-code').value = "";
-            }
+            
+            // Resume kamera
+            if(html5QrCode) setTimeout(() => html5QrCode.resume(), 1000);
         }
 
         function saveDb() {
             localStorage.setItem(DB_KEY, JSON.stringify(db));
             renderStockList();
+            renderProductGrid();
         }
 
         function playBeep() { 
             document.getElementById('beep-sound').play().catch(e => console.log("Interaksi user dibutuhkan untuk memutar suara.")); 
         }
 
-        // --- UI FUNCTIONS ---
-        function toggleStockView() {
-            const stockView = document.getElementById('stock-view');
-            stockView.classList.toggle('translate-x-full');
+        // --- CLOUD SYNC FUNCTIONS ---
+        function openSettings() {
+            Swal.fire({
+                title: 'Pengaturan Cloud',
+                text: 'Masukkan URL Google Apps Script Web App Anda untuk mengaktifkan fitur online.',
+                input: 'url',
+                inputValue: googleScriptUrl,
+                inputPlaceholder: 'https://script.google.com/macros/s/...',
+                showCancelButton: true,
+                confirmButtonText: 'Simpan',
+                confirmButtonColor: '#007aff'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    googleScriptUrl = result.value;
+                    localStorage.setItem(URL_KEY, googleScriptUrl);
+                    Swal.fire('Tersimpan', 'Koneksi cloud telah diperbarui.', 'success');
+                }
+            });
         }
+
+        async function sendToCloud(payload) {
+            if (!googleScriptUrl) return false;
+            try {
+                // Menggunakan no-cors agar tidak diblokir browser, namun kita tidak bisa baca response
+                // Untuk keperluan logging POS sederhana ini sudah cukup
+                await fetch(googleScriptUrl, {
+                    method: 'POST',
+                    mode: 'no-cors', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                return true;
+            } catch (e) {
+                console.error("Sync Error", e);
+                return false;
+            }
+        }
+
+        function syncStockToCloud() {
+            if (!googleScriptUrl) return Swal.fire('Belum Terhubung', 'Silakan atur URL Google Script di menu pengaturan (ikon gerigi).', 'warning');
+            
+            Swal.fire({
+                title: 'Backup Stok?',
+                text: 'Data stok di Google Sheet akan ditimpa dengan data dari aplikasi ini.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Sinkronkan',
+                showLoaderOnConfirm: true,
+                preConfirm: async () => {
+                    return await sendToCloud({ action: 'sync_stock', db: db });
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire('Berhasil', 'Data stok sedang dikirim ke cloud di latar belakang.', 'success');
+                }
+            });
+        }
+
+        // --- UI FUNCTIONS ---
+        function switchTab(tab) {
+            const posPanel = document.getElementById('panel-pos');
+            const stockPanel = document.getElementById('panel-stock');
+            
+            if (tab === 'pos') {
+                posPanel.classList.remove('hidden');
+                stockPanel.classList.add('hidden');
+            } else {
+                posPanel.classList.add('hidden');
+                stockPanel.classList.remove('hidden');
+                renderStockList();
+            }
+        }
+
 
         function showAddProductForm(id = '') {
             Swal.fire({
@@ -321,39 +489,70 @@
         }
 
         // --- RENDER FUNCTIONS ---
+        function renderProductGrid() {
+            const grid = document.getElementById('product-grid');
+            const filter = document.getElementById('search-input').value.toLowerCase();
+            
+            const filteredDb = db.filter(p => p.name.toLowerCase().includes(filter) || p.id.includes(filter));
+
+            grid.innerHTML = filteredDb.map(p => `
+                <div onclick="processItem('${p.id}')" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-slate-100 text-[10px] px-2 py-1 rounded-bl-lg text-slate-500 font-mono">${p.stock}</div>
+                    <div class="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center mb-3 group-hover:bg-blue-600 transition">
+                        <span class="text-xl font-bold text-blue-500 group-hover:text-white transition">${p.name.charAt(0)}</span>
+                    </div>
+                    <h3 class="font-bold text-slate-700 text-sm leading-tight mb-1 line-clamp-2">${p.name}</h3>
+                    <p class="text-blue-600 font-bold text-sm">Rp ${p.price.toLocaleString()}</p>
+                </div>
+            `).join('');
+        }
+
+        function filterProducts() {
+            renderProductGrid();
+        }
+
         function renderCart() {
             const list = document.getElementById('cart-list');
-            const placeholder = document.getElementById('cart-placeholder');
+            const emptyState = document.getElementById('cart-empty');
+            const badge = document.getElementById('cart-badge');
             let total = 0;
+            let totalItems = 0;
 
             if (cart.length === 0) {
                 list.innerHTML = '';
-                placeholder.style.display = 'block';
+                list.appendChild(emptyState);
+                emptyState.style.display = 'flex';
                 document.getElementById('grand-total').innerText = 'Rp 0';
+                document.getElementById('sub-total').innerText = 'Rp 0';
+                badge.innerText = '0 Item';
                 return;
             }
-
-            placeholder.style.display = 'none';
+            
+            emptyState.style.display = 'none';
 
             list.innerHTML = cart.map(item => {
                 total += item.price * item.qty;
+                totalItems += item.qty;
                 return `
-                <div class="bg-white p-3 rounded-[24px] flex justify-between items-center shadow-sm border border-gray-100">
-                    <div class="flex items-center gap-4">
-                        <div class="flex items-center gap-2">
-                            <button onclick="updateQty('${item.id}', -1)" class="w-7 h-7 bg-gray-100 rounded-full btn-active flex items-center justify-center text-lg">-</button>
-                            <span class="w-6 text-center font-bold text-blue-600">${item.qty}</span>
-                            <button onclick="updateQty('${item.id}', 1)" class="w-7 h-7 bg-gray-100 rounded-full btn-active flex items-center justify-center text-lg">+</button>
-                        </div>
-                        <div>
-                            <p class="font-bold text-sm">${item.name}</p>
-                            <p class="text-[10px] text-gray-400 tracking-wider font-semibold">Rp ${item.price.toLocaleString()}</p>
-                        </div>
+                <div class="bg-white p-3 rounded-2xl flex justify-between items-center shadow-sm border border-slate-100">
+                    <div class="flex-1">
+                        <p class="font-bold text-slate-800 text-sm truncate">${item.name}</p>
+                        <p class="text-xs text-slate-400">@ Rp ${item.price.toLocaleString()}</p>
                     </div>
-                    <p class="font-bold text-gray-800 text-sm">Rp ${(item.price * item.qty).toLocaleString()}</p>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center bg-slate-100 rounded-lg p-1">
+                            <button onclick="updateQty('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center hover:bg-white rounded-md transition font-bold text-slate-600">-</button>
+                            <span class="w-8 text-center font-bold text-sm text-slate-800">${item.qty}</span>
+                            <button onclick="updateQty('${item.id}', 1)" class="w-6 h-6 flex items-center justify-center hover:bg-white rounded-md transition font-bold text-slate-600">+</button>
+                        </div>
+                        <p class="font-bold text-slate-800 text-sm w-16 text-right">Rp ${(item.price * item.qty).toLocaleString()}</p>
+                    </div>
                 </div>`;
             }).join('');
+            
             document.getElementById('grand-total').innerText = `Rp ${total.toLocaleString()}`;
+            document.getElementById('sub-total').innerText = `Rp ${total.toLocaleString()}`;
+            badge.innerText = `${totalItems} Item`;
         }
 
         function updateQty(id, amount) {
@@ -365,6 +564,11 @@
                 }
                 renderCart();
             }
+        }
+
+        function clearCart() {
+            cart = [];
+            renderCart();
         }
 
         function renderStockList() {
@@ -390,78 +594,119 @@
         }
 
         // --- CHECKOUT & RECEIPT ---
-        function showCheckoutOptions() {
+        function showPaymentModal() {
             if (cart.length === 0) return;
+            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            
             Swal.fire({
-                title: 'Pilih Opsi Struk',
-                showDenyButton: true,
+                title: 'Pembayaran',
+                html: `
+                    <div class="text-center mb-4">
+                        <p class="text-sm text-gray-500">Total Tagihan</p>
+                        <h2 class="text-3xl font-black text-slate-800">Rp ${total.toLocaleString()}</h2>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mb-4">
+                        <button onclick="document.getElementById('pay-input').value=${total}" class="bg-slate-100 p-2 rounded text-sm font-bold">Uang Pas</button>
+                        <button onclick="document.getElementById('pay-input').value=${Math.ceil(total/50000)*50000}" class="bg-slate-100 p-2 rounded text-sm font-bold">Rp ${(Math.ceil(total/50000)*50000).toLocaleString()}</button>
+                    </div>
+                    <input id="pay-input" type="number" class="swal2-input text-center text-xl font-bold" placeholder="Masukkan Jumlah Uang" autofocus>
+                `,
                 showCancelButton: true,
-                confirmButtonText: `<i data-lucide="printer" class="inline-block mr-2"></i> Cetak`,
-                denyButtonText: `<i data-lucide="send" class="inline-block mr-2"></i> WhatsApp`,
-                cancelButtonText: 'Selesai Saja',
-                confirmButtonColor: '#007aff',
-                denyButtonColor: '#25D366',
+                confirmButtonText: 'Bayar & Cetak',
+                confirmButtonColor: '#0f172a',
+                preConfirm: () => {
+                    const pay = parseInt(document.getElementById('pay-input').value) || 0;
+                    if (pay < total) {
+                        Swal.showValidationMessage('Uang pembayaran kurang!');
+                        return false;
+                    }
+                    return pay;
+                }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    printReceipt();
-                } else if (result.isDenied) {
-                    sendWhatsAppReceipt();
+                    const pay = result.value;
+                    const change = pay - total;
+                    
+                    // Tampilkan kembalian
+                    Swal.fire({
+                        title: 'Kembalian',
+                        html: `<h1 class="text-4xl font-bold text-green-600">Rp ${change.toLocaleString()}</h1>`,
+                        icon: 'success',
+                        timer: 3000,
+                        showConfirmButton: false
+                    });
+
+                    printReceipt(pay, change);
+                    finishTransaction('Cash');
                 }
-                // Baik cetak, kirim, atau cancel, selesaikan transaksi
-                finishTransaction();
             });
-            lucide.createIcons();
         }
 
-        function generateReceiptText() {
+        function printReceipt(pay, change) {
             const now = dayjs().format('DD/MM/YYYY HH:mm:ss');
             let total = 0;
-            let receipt = `*Struk Belanja SmartPOS Pro*\n`;
-            receipt += `----------------------------------\n`;
-            receipt += `Waktu: ${now}\n\n`;
-            cart.forEach(item => {
-                const itemTotal = item.price * item.qty;
-                total += itemTotal;
-                receipt += `${item.name}\n`;
-                receipt += `${item.qty} x Rp ${item.price.toLocaleString()} = Rp ${itemTotal.toLocaleString()}\n\n`;
-            });
-            receipt += `----------------------------------\n`;
-            receipt += `*TOTAL: Rp ${total.toLocaleString()}*\n\n`;
-            receipt += `Terima kasih telah berbelanja!`;
-            return {receipt, total};
+            
+            // Generate HTML Struk untuk Thermal Printer (58mm/80mm)
+            let html = `
+                <div style="font-family: monospace; width: 100%; max-width: 300px; font-size: 12px; color: black;">
+                    <div style="text-align: center; margin-bottom: 10px;">
+                        <h2 style="margin:0; font-size: 16px;">SMARTPOS PRO</h2>
+                        <p style="margin:0;">Jl. Contoh No. 123</p>
+                        <p style="margin:0;">${now}</p>
+                    </div>
+                    <hr style="border-top: 1px dashed black;">
+                    <table style="width: 100%; text-align: left;">
+                        ${cart.map(item => {
+                            total += item.price * item.qty;
+                            return `
+                                <tr><td colspan="2" style="padding-top: 4px;">${item.name}</td></tr>
+                                <tr>
+                                    <td>${item.qty} x ${item.price.toLocaleString()}</td>
+                                    <td style="text-align: right;">${(item.price * item.qty).toLocaleString()}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </table>
+                    <hr style="border-top: 1px dashed black;">
+                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;">
+                        <span>TOTAL</span>
+                        <span>Rp ${total.toLocaleString()}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Bayar</span>
+                        <span>Rp ${pay.toLocaleString()}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Kembali</span>
+                        <span>Rp ${change.toLocaleString()}</span>
+                    </div>
+                    <hr style="border-top: 1px dashed black;">
+                    <div style="text-align: center; margin-top: 10px;">
+                        <p>Terima Kasih</p>
+                    </div>
+                </div>
+            `;
+
+            const printArea = document.getElementById('receipt-print-area');
+            printArea.innerHTML = html;
+            window.print();
         }
 
-        function printReceipt() {
-            const { receipt } = generateReceiptText();
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`<pre>${receipt.replace(/\*/g, '')}</pre>`); // Hapus markdown bold
-            printWindow.document.close();
-            printWindow.focus();
-            printWindow.print();
-            printWindow.close();
-        }
+        function finishTransaction(method = 'Cash') {
+            const transactionId = 'TRX-' + Date.now().toString().slice(-6);
+            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
 
-        async function sendWhatsAppReceipt() {
-            const { value: phone } = await Swal.fire({
-                title: 'Masukkan No. WhatsApp',
-                input: 'tel',
-                inputPlaceholder: 'Contoh: 6281234567890',
-                confirmButtonColor: '#007aff',
-                inputValidator: (value) => {
-                    if (!value) {
-                        return 'Nomor tidak boleh kosong!'
-                    }
-                }
-            })
-
-            if (phone) {
-                const { receipt } = generateReceiptText();
-                const encodedReceipt = encodeURIComponent(receipt);
-                window.open(`https://wa.me/${phone}?text=${encodedReceipt}`, '_blank');
+            // 1. Kirim ke Google Sheet (Fire and Forget)
+            if (googleScriptUrl) {
+                sendToCloud({
+                    action: 'transaction',
+                    id: transactionId,
+                    cart: cart,
+                    total: total,
+                    method: method
+                });
             }
-        }
 
-        function finishTransaction() {
             // Kurangi stok
             cart.forEach(item => {
                 const productInDb = db.find(p => p.id === item.id);
@@ -474,7 +719,15 @@
             // Reset keranjang
             cart = [];
             renderCart();
-            Swal.fire({ title: 'Transaksi Selesai', icon: 'success', timer: 1500, showConfirmButton: false });
+        }
+
+        // --- PWA SERVICE WORKER REGISTRATION ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed: ', err));
+            });
         }
     </script>
 </body>
