@@ -72,6 +72,15 @@
             #receipt-print-area, #receipt-print-area * { visibility: visible; }
             #receipt-print-area { position: absolute; left: 0; top: 0; width: 100%; }
         }
+
+        /* Animasi untuk Live Feed */
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-down {
+            animation: slideDown 0.3s ease-out forwards;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden">
@@ -115,7 +124,7 @@
                 
                 <!-- Scanner (Hidden by default on Desktop, Toggleable) -->
                 <div id="scanner-container" class="hidden mb-6 bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-800 relative w-full max-w-2xl mx-auto aspect-square md:aspect-video">
-                    <div id="reader" class="w-full h-full"></div>
+                    <div id="reader-pos" class="w-full h-full"></div>
                     <button onclick="toggleScanner()" class="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full z-20"><i data-lucide="x"></i></button>
                     <div class="scan-laser"></div>
                 </div>
@@ -189,9 +198,20 @@
                 <button onclick="switchTab('pos')" class="md:hidden p-2 bg-slate-100 rounded-full"><i data-lucide="x"></i></button>
             </header>
             <div class="p-6 overflow-y-auto custom-scrollbar pb-24">
+                
+                <!-- Scanner Stok (Khusus Tambah Stok) -->
+                <div id="scanner-stock-container" class="hidden mb-6 bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-800 relative w-full max-w-2xl mx-auto aspect-square md:aspect-video">
+                    <div id="reader-stock" class="w-full h-full"></div>
+                    <button onclick="toggleStockScanner()" class="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full z-20"><i data-lucide="x"></i></button>
+                    <div class="scan-laser"></div>
+                </div>
+
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <button onclick="showAddProductForm()" class="bg-blue-600 text-white p-4 rounded-2xl shadow-lg shadow-blue-200 flex flex-col items-center gap-2 btn-active">
                         <i data-lucide="plus-circle"></i> <span class="font-bold text-sm">Tambah Barang</span>
+                    </button>
+                    <button onclick="toggleStockScanner()" class="bg-purple-600 text-white p-4 rounded-2xl shadow-lg shadow-purple-200 flex flex-col items-center gap-2 btn-active">
+                        <i data-lucide="scan-barcode"></i> <span class="font-bold text-sm">Scan Stok Masuk</span>
                     </button>
                     <button onclick="syncStockToCloud()" class="bg-green-600 text-white p-4 rounded-2xl shadow-lg shadow-green-200 flex flex-col items-center gap-2 btn-active">
                         <i data-lucide="cloud-upload"></i> <span class="font-bold text-sm">Sync Cloud</span>
@@ -278,10 +298,10 @@
         let currentCategory = 'all';
         let lastScannedCode = null;
         let lastScannedTime = 0;
+        let currentScanMode = 'pos'; // 'pos' atau 'stock'
 
         // --- INIT & CORE FUNCTIONS ---
         document.addEventListener('DOMContentLoaded', () => {
-            // initScanner(); // Scanner nyala manual atau di mobile
             renderStockList();
             renderProductGrid();
             lucide.createIcons();
@@ -291,10 +311,10 @@
         });
 
         // --- SCANNER LOGIC (HYBRID: CAMERA + USB) ---
-        function initScanner() {
+        function initScanner(elementId) {
             if(html5QrCode && html5QrCode.isScanning) return;
 
-            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode = new Html5Qrcode(elementId);
             const config = {
                 fps: 10, // FPS rendah lebih stabil dan akurat untuk fokus kamera
                 // QR Box dinamis: 85% lebar layar, tinggi disesuaikan untuk barcode memanjang
@@ -322,7 +342,22 @@
             const container = document.getElementById('scanner-container');
             if (container.classList.contains('hidden')) {
                 container.classList.remove('hidden');
-                initScanner();
+                currentScanMode = 'pos';
+                initScanner("reader-pos");
+            } else {
+                container.classList.add('hidden');
+                if (html5QrCode && html5QrCode.isScanning) {
+                    html5QrCode.stop().then(() => html5QrCode.clear()).catch(err => console.log(err));
+                }
+            }
+        }
+
+        function toggleStockScanner() {
+            const container = document.getElementById('scanner-stock-container');
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                currentScanMode = 'stock';
+                initScanner("reader-stock");
             } else {
                 container.classList.add('hidden');
                 if (html5QrCode && html5QrCode.isScanning) {
@@ -379,7 +414,32 @@
                 if (product) id = altId;
             }
 
-            if (product) {
+            // LOGIKA PISAH BERDASARKAN MODE SCAN
+            if (currentScanMode === 'stock') {
+                // --- MODE STOK ---
+                if (product) {
+                    Swal.fire({
+                        title: `Update Stok: ${product.name}`,
+                        text: `Stok saat ini: ${product.stock}`,
+                        input: 'number',
+                        inputLabel: 'Masukkan jumlah penambahan stok',
+                        inputPlaceholder: 'Contoh: 10',
+                        showCancelButton: true,
+                        confirmButtonText: 'Tambah Stok',
+                        confirmButtonColor: '#9333ea'
+                    }).then((result) => {
+                        if (result.isConfirmed && result.value) {
+                            product.stock += parseInt(result.value);
+                            saveDb();
+                            Swal.fire('Berhasil', `Stok berhasil ditambah. Total: ${product.stock}`, 'success');
+                        }
+                    });
+                } else {
+                    showAddProductForm(id);
+                }
+            } else {
+                // --- MODE KASIR (POS) ---
+                if (product) {
                 const item = cart.find(c => c.id === id);
                 if (item) item.qty++;
                 else cart.push({ ...product, qty: 1 });
@@ -388,7 +448,7 @@
                 // Tampilkan di Live Feed (Bawah Scanner) - Pisah baris setiap scan
                 const feed = document.getElementById('scan-feed');
                 const feedItem = document.createElement('div');
-                feedItem.className = "bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center animate-[fadeIn_0.3s_ease-out]";
+                feedItem.className = "bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center animate-slide-down";
                 feedItem.innerHTML = `
                     <div class="flex items-center gap-3">
                         <div class="h-8 w-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs">1x</div>
@@ -405,8 +465,9 @@
                 if (feed.children.length > 5) {
                     feed.lastElementChild.remove();
                 }
-            } else {
-                showAddProductForm(id);
+                } else {
+                    showAddProductForm(id);
+                }
             }
         }
 
@@ -536,6 +597,11 @@
             posPanel.classList.add('hidden');
             stockPanel.classList.add('hidden');
             historyPanel.classList.add('hidden');
+
+            // Matikan scanner jika sedang nyala saat pindah tab
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => html5QrCode.clear()).catch(err => console.log(err));
+            }
 
             if (tab === 'pos') {
                 posPanel.classList.remove('hidden');
