@@ -85,6 +85,16 @@
             <div class="scan-container">
                 <div id="reader"></div>
                 <div class="laser"></div>
+                
+                <!-- SLIDER ZOOM BARU -->
+                <div id="zoom-container" class="absolute bottom-5 left-0 right-0 px-10 z-30 hidden">
+                    <div class="bg-black/50 backdrop-blur-md p-2 rounded-full flex items-center gap-3">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" stroke-width="2"/></svg>
+                        <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1" class="w-full h-2 bg-indigo-500 rounded-lg appearance-none cursor-pointer">
+                        <span id="zoom-value" class="text-white text-[10px] font-bold w-8">1x</span>
+                    </div>
+                </div>
+
                 <!-- Tombol Jika Kamera Tidak Muncul -->
                 <div id="camera-prompt" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-6 text-center z-20">
                     <svg class="w-12 h-12 mb-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke-width="2"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"/></svg>
@@ -199,6 +209,7 @@
         let tempSku = '';
         let lastScanCode = null;
         let lastScanTime = 0;
+        let currentTrack = null;
 
         // JAM OTOMATIS
         setInterval(() => {
@@ -215,47 +226,30 @@
             const config = { 
                 fps: 20, 
                 qrbox: { width: 250, height: 200 },
-                // Menambahkan aspek rasio standar untuk menghindari lensa ultra-wide yang biasanya sangat lebar
                 aspectRatio: 1.333334 
             };
             
             Html5Qrcode.getCameras().then(cameras => {
                 let selectedCameraId = null;
-
                 if (cameras && cameras.length > 0) {
-                    // 1. Filter hanya kamera belakang
                     const backCameras = cameras.filter(c => {
                         const label = c.label.toLowerCase();
                         return label.includes('back') || label.includes('rear') || label.includes('belakang');
                     });
 
                     if (backCameras.length > 0) {
-                        // 2. Cari Kamera Utama dengan kata kunci negatif (menghindari ultra-wide/tele/macro)
-                        // Kita mencari yang labelnya mengandung "0" (biasanya index kamera utama) 
-                        // atau yang TIDAK mengandung kata-kata lensa tambahan.
                         const mainCamera = backCameras.find(c => {
                             const label = c.label.toLowerCase();
-                            const isUltraWide = label.includes('ultra') || label.includes('wide') && label.includes('0.5') || label.includes('0.6');
-                            const isSpecial = label.includes('tele') || label.includes('macro') || label.includes('depth') || label.includes('virtual');
-                            
-                            // Prioritaskan yang ada angka "0" atau "primary" atau "main"
-                            return (label.includes('0') || label.includes('main') || label.includes('primary')) && !isUltraWide && !isSpecial;
+                            const isUltraWide = label.includes('ultra') || label.includes('wide') && (label.includes('0.5') || label.includes('0.6'));
+                            return (label.includes('0') || label.includes('main') || label.includes('primary')) && !isUltraWide;
                         });
-
-                        // 3. Jika pencarian spesifik gagal, ambil kamera belakang pertama yang tidak punya kata "ultra"
-                        selectedCameraId = mainCamera ? mainCamera.id : 
-                                           backCameras.find(c => !c.label.toLowerCase().includes('ultra'))?.id || 
-                                           backCameras[0].id;
-                        
-                        console.log("Kamera terpilih:", cameras.find(c => c.id === selectedCameraId).label);
+                        selectedCameraId = mainCamera ? mainCamera.id : backCameras[0].id;
                     }
                 }
 
-                const constraints = selectedCameraId ? 
-                    { deviceId: { exact: selectedCameraId } } : 
-                    { facingMode: "environment" };
+                const constraints = selectedCameraId ? { deviceId: { exact: selectedCameraId } } : { facingMode: "environment" };
 
-                // Eksekusi Start
+                // Jalankan Scanner
                 scanner.start(constraints, config, (decodedText) => {
                     const now = Date.now();
                     if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
@@ -263,19 +257,32 @@
                     lastScanTime = now;
                     handleScanKasir(decodedText);
                     if(navigator.vibrate) navigator.vibrate(70);
+                }).then(() => {
+                    // --- LOGIKA ZOOM SETELAH KAMERA JALAN ---
+                    const track = scanner.getRunningTrack();
+                    const capabilities = track.getCapabilities();
+                    
+                    if (capabilities.zoom) {
+                        const zoomContainer = document.getElementById('zoom-container');
+                        const zoomSlider = document.getElementById('zoom-slider');
+                        const zoomValue = document.getElementById('zoom-value');
+                        
+                        zoomContainer.classList.remove('hidden');
+                        zoomSlider.min = capabilities.zoom.min;
+                        zoomSlider.max = capabilities.zoom.max;
+                        zoomSlider.step = capabilities.zoom.step;
+                        
+                        zoomSlider.oninput = () => {
+                            const val = zoomSlider.value;
+                            zoomValue.innerText = val + 'x';
+                            track.applyConstraints({ advanced: [{ zoom: val }] });
+                        };
+                    }
                 }).catch(err => {
-                    console.error("Gagal start kamera spesifik, mencoba default environment", err);
-                    // Fallback terakhir jika ID gagal
-                    scanner.start({ facingMode: "environment" }, config, (decodedText) => {
-                        handleScanKasir(decodedText);
-                    }).catch(e => {
-                        document.getElementById('camera-prompt').style.display = 'flex';
-                    });
+                    console.error(err);
+                    document.getElementById('camera-prompt').style.display = 'flex';
                 });
 
-            }).catch(err => {
-                console.error("Gagal mendapatkan daftar kamera", err);
-                document.getElementById('camera-prompt').style.display = 'flex';
             });
         }
 
