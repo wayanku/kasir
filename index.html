@@ -10,10 +10,11 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F1F5F9; -webkit-tap-highlight-color: transparent; }
         .page { display: none; }
         .page.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
         /* AREA KAMERA */
         #reader { 
@@ -53,9 +54,24 @@
 
         .nav-btn.active { color: #4F46E5; }
         .nav-btn.active svg { transform: translateY(-3px); }
+
+        /* TOAST NOTIFICATION */
+        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; flex-direction: column; gap: 10px; width: 90%; max-width: 400px; pointer-events: none; }
+        .toast { background: rgba(0,0,0,0.85); color: white; padding: 12px 20px; rounded: 12px; border-radius: 50px; font-size: 14px; text-align: center; backdrop-filter: blur(4px); animation: fadeIn 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.2); pointer-events: auto; }
+
+        /* PRINT STYLE */
+        @media print {
+            body * { visibility: hidden; }
+            #receipt-area, #receipt-area * { visibility: visible; }
+            #receipt-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; background: white; color: black; }
+            .no-print { display: none !important; }
+        }
     </style>
 </head>
 <body class="pb-24">
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container"></div>
 
     <!-- HEADER -->
     <header class="p-6 bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b flex justify-between items-center">
@@ -86,9 +102,15 @@
                 <div id="reader"></div>
                 <div class="laser"></div>
                 
-                <!-- SLIDER ZOOM BARU -->
-                <div id="zoom-container" class="absolute bottom-5 left-0 right-0 px-10 z-30 hidden">
-                    <div class="bg-black/50 backdrop-blur-md p-2 rounded-full flex items-center gap-3">
+                <!-- CONTROLS KAMERA (ZOOM & FLASH) -->
+                <div id="cam-controls" class="absolute bottom-5 left-0 right-0 px-6 z-30 hidden flex flex-col gap-3">
+                    <!-- Flash Button -->
+                    <button id="btn-flash" onclick="toggleFlash()" class="self-end bg-black/50 backdrop-blur-md text-white p-3 rounded-full mb-2 hidden">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-width="2" stroke-linejoin="round"/></svg>
+                    </button>
+                    
+                    <!-- Zoom Slider -->
+                    <div id="zoom-box" class="bg-black/50 backdrop-blur-md p-2 rounded-full flex items-center gap-3 hidden w-full">
                         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" stroke-width="2"/></svg>
                         <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1" class="w-full h-2 bg-indigo-500 rounded-lg appearance-none cursor-pointer">
                         <span id="zoom-value" class="text-white text-[10px] font-bold w-8">1x</span>
@@ -107,7 +129,7 @@
             <!-- Temp Scan List (Barang Scan Sementara) -->
             <div id="temp-scan-area" class="hidden bg-indigo-50 rounded-2xl p-4 border border-indigo-100 shadow-inner">
                 <div class="flex justify-between items-center mb-3">
-                    <h3 class="font-bold text-indigo-900 text-sm">Hasil Scan (Belum Masuk Keranjang)</h3>
+                    <h3 class="font-bold text-indigo-900 text-sm">Hasil Scan</h3>
                     <button onclick="batalTempSemua()" class="text-[10px] text-red-500 font-bold bg-white px-2 py-1 rounded-lg border border-red-100">BATAL SEMUA</button>
                 </div>
                 <div id="temp-list" class="space-y-2 mb-3 max-h-[150px] overflow-y-auto"></div>
@@ -117,11 +139,11 @@
             <!-- Keranjang -->
             <div class="bg-white rounded-[32px] p-6 shadow-xl border border-gray-100">
                 <div class="flex justify-between mb-4">
-                    <h2 class="font-bold text-gray-800">Item Belanja</h2>
+                    <h2 class="font-bold text-gray-800 flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" stroke-width="2"/></svg> Keranjang</h2>
                     <button onclick="resetCart()" class="text-xs text-red-500">Kosongkan</button>
                 </div>
                 <div id="cart-list" class="space-y-4 max-h-[300px] overflow-y-auto mb-6">
-                    <div class="text-center py-10 text-gray-300">Belum ada item</div>
+                    <div class="text-center py-10 text-gray-300 text-sm">Belum ada item</div>
                 </div>
                 <div class="border-t pt-4 space-y-4">
                     <div class="flex justify-between items-center">
@@ -155,7 +177,7 @@
                     <input type="number" id="f-harga" placeholder="Harga" class="p-3 bg-gray-50 rounded-xl outline-none text-sm">
                     <input type="number" id="f-stok" placeholder="Jumlah Stok" class="p-3 bg-gray-50 rounded-xl outline-none text-sm">
                 </div>
-                <button onclick="simpanProduk()" class="w-full mt-4 bg-emerald-500 text-white py-3 rounded-xl font-bold">Simpan ke Gudang</button>
+                <button onclick="simpanProduk()" class="w-full mt-4 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-200">Simpan Produk</button>
             </div>
 
             <div class="bg-white rounded-[32px] shadow-sm border overflow-hidden">
@@ -173,6 +195,61 @@
         </div>
     </main>
 
+    <!-- HALAMAN LAPORAN -->
+    <div id="p-laporan" class="page p-4 max-w-4xl mx-auto space-y-6">
+        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-[32px] p-6 text-white shadow-xl">
+            <p class="text-indigo-100 text-sm font-medium mb-1">Omzet Hari Ini</p>
+            <h2 id="omzet-hari-ini" class="text-3xl font-bold">Rp 0</h2>
+            <div class="mt-4 flex gap-2">
+                <div class="bg-white/20 px-3 py-1 rounded-lg text-xs backdrop-blur-sm" id="total-transaksi-hari">0 Transaksi</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[32px] p-6 shadow-sm border">
+            <h3 class="font-bold text-gray-800 mb-4">Riwayat Transaksi</h3>
+            <div id="list-riwayat" class="space-y-4 max-h-[400px] overflow-y-auto">
+                <!-- List Transaksi -->
+            </div>
+        </div>
+    </div>
+
+    <!-- HALAMAN PENGATURAN -->
+    <div id="p-pengaturan" class="page p-4 max-w-4xl mx-auto space-y-6">
+        <div class="bg-white rounded-[32px] p-6 shadow-sm border space-y-4">
+            <h3 class="font-bold text-gray-800">Manajemen Data</h3>
+            
+            <div class="p-4 bg-gray-50 rounded-2xl flex justify-between items-center">
+                <div>
+                    <div class="font-bold text-sm text-gray-700">Backup Data</div>
+                    <div class="text-xs text-gray-400">Simpan database ke file JSON</div>
+                </div>
+                <button onclick="backupData()" class="bg-indigo-100 text-indigo-600 px-4 py-2 rounded-xl text-sm font-bold">Download</button>
+            </div>
+
+            <div class="p-4 bg-gray-50 rounded-2xl flex justify-between items-center">
+                <div>
+                    <div class="font-bold text-sm text-gray-700">Restore Data</div>
+                    <div class="text-xs text-gray-400">Kembalikan data dari file</div>
+                </div>
+                <label class="bg-emerald-100 text-emerald-600 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer">
+                    Upload
+                    <input type="file" id="file-restore" onchange="restoreData(this)" class="hidden" accept=".json">
+                </label>
+            </div>
+
+            <div class="p-4 bg-red-50 rounded-2xl flex justify-between items-center">
+                <div>
+                    <div class="font-bold text-sm text-red-700">Reset Aplikasi</div>
+                    <div class="text-xs text-red-400">Hapus semua data permanen</div>
+                </div>
+                <button onclick="resetAplikasi()" class="bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-bold">Reset</button>
+            </div>
+        </div>
+        <div class="text-center text-xs text-gray-400">
+            Versi 2.0.0 - KasirPintar Pro
+        </div>
+    </div>
+
     <!-- MODAL UNKNOWN PRODUCT -->
     <div id="modal-unknown" class="fixed inset-0 bg-black/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-3xl p-6 w-full max-w-sm text-center shadow-2xl transform transition-all scale-100">
@@ -188,6 +265,22 @@
         </div>
     </div>
 
+    <!-- MODAL STRUK -->
+    <div id="modal-struk" class="fixed inset-0 bg-black/60 z-[90] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl relative">
+            <button onclick="tutupStruk()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 no-print">✕</button>
+            
+            <div id="receipt-area" class="text-center p-4 border-2 border-dashed border-gray-200 rounded-xl mb-4 bg-gray-50">
+                <!-- Konten Struk -->
+            </div>
+
+            <div class="flex gap-3 no-print">
+                <button onclick="window.print()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg">Cetak</button>
+                <button onclick="tutupStruk()" class="flex-1 py-3 text-gray-500 font-bold bg-gray-100 rounded-xl">Tutup</button>
+            </div>
+        </div>
+    </div>
+
     <!-- NAVIGASI -->
     <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around items-center z-50">
         <button onclick="bukaHalaman('kasir')" id="nav-kasir" class="nav-btn active flex flex-col items-center gap-1">
@@ -198,10 +291,19 @@
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-width="2"/></svg>
             <span class="text-[10px] font-bold">STOK</span>
         </button>
+        <button onclick="bukaHalaman('laporan')" id="nav-laporan" class="nav-btn text-gray-400 flex flex-col items-center gap-1">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="text-[10px] font-bold">LAPORAN</span>
+        </button>
+        <button onclick="bukaHalaman('pengaturan')" id="nav-pengaturan" class="nav-btn text-gray-400 flex flex-col items-center gap-1">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-width="2"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"/></svg>
+            <span class="text-[10px] font-bold">SETTING</span>
+        </button>
     </nav>
 
     <script>
         let gudang = JSON.parse(localStorage.getItem('gudang_data')) || [];
+        let riwayat = JSON.parse(localStorage.getItem('riwayat_transaksi')) || [];
         let cart = [];
         let tempCart = []; // Penampung scan sementara
         let scanner = null;
@@ -215,6 +317,22 @@
         setInterval(() => {
             document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID');
         }, 1000);
+
+        // TOAST NOTIFICATION SYSTEM
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = 'toast';
+            el.innerText = msg;
+            if(type === 'error') el.style.background = 'rgba(220, 38, 38, 0.9)';
+            if(type === 'success') el.style.background = 'rgba(22, 163, 74, 0.9)';
+            
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 300);
+            }, 3000);
+        }
 
         // KAMERA ENGINE
         function startKamera() {
@@ -265,12 +383,15 @@
                     const track = scanner.getRunningTrack();
                     const capabilities = track.getCapabilities();
                     
+                    const camControls = document.getElementById('cam-controls');
+                    camControls.classList.remove('hidden');
+                    camControls.classList.add('flex');
+
                     if (capabilities.zoom) {
-                        const zoomContainer = document.getElementById('zoom-container');
+                        const zoomBox = document.getElementById('zoom-box');
                         const zoomSlider = document.getElementById('zoom-slider');
                         const zoomValue = document.getElementById('zoom-value');
-                        
-                        zoomContainer.classList.remove('hidden');
+                        zoomBox.classList.remove('hidden');
                         zoomSlider.min = capabilities.zoom.min;
                         zoomSlider.max = capabilities.zoom.max;
                         zoomSlider.step = capabilities.zoom.step;
@@ -281,6 +402,11 @@
                             track.applyConstraints({ advanced: [{ zoom: val }] });
                         };
                     }
+
+                    if (capabilities.torch) {
+                        document.getElementById('btn-flash').classList.remove('hidden');
+                    }
+
                 }).catch(err => {
                     console.warn("Gagal start kamera spesifik, mencoba mode kompatibilitas...", err);
                     // FALLBACK: Coba mode environment standar tanpa ID spesifik dan tanpa aspect ratio
@@ -291,7 +417,25 @@
                     });
                 });
 
+            }).catch(err => {
+                console.warn("Gagal mendapatkan list kamera, mencoba start langsung...", err);
+                scanner.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 200 } }, onScanSuccess)
+                .catch(errFinal => {
+                    console.error("Gagal total:", errFinal);
+                    document.getElementById('camera-prompt').style.display = 'flex';
+                });
             });
+        }
+
+        // FLASH TOGGLE
+        let isFlashOn = false;
+        function toggleFlash() {
+            if(scanner) {
+                const track = scanner.getRunningTrack();
+                isFlashOn = !isFlashOn;
+                track.applyConstraints({ advanced: [{ torch: isFlashOn }] })
+                .catch(e => showToast("Flash tidak didukung", "error"));
+            }
         }
 
         // SCANNER STOK
@@ -308,7 +452,7 @@
                 if(navigator.vibrate) navigator.vibrate(70);
                 tutupScannerStok();
             }).catch(err => {
-                alert("Gagal buka kamera stok: " + err);
+                showToast("Gagal buka kamera stok", "error");
                 box.classList.add('hidden');
             });
         }
@@ -328,6 +472,9 @@
             
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'text-indigo-600'));
             document.getElementById('nav-' + nama).classList.add('active');
+
+            if(nama === 'laporan') renderLaporan();
+            if(nama === 'stok') renderStok();
 
             if(nama === 'kasir') {
                 setTimeout(startKamera, 100);
@@ -368,14 +515,14 @@
             const harga = document.getElementById('f-harga').value;
             const stok = document.getElementById('f-stok').value;
 
-            if(!sku || !nama || !harga) return alert("Data belum lengkap!");
+            if(!sku || !nama || !harga) return showToast("Data belum lengkap!", "error");
 
             const index = gudang.findIndex(p => p.sku === sku);
             if(index > -1) gudang[index] = {sku, nama, harga, stok};
             else gudang.push({sku, nama, harga, stok});
 
             localStorage.setItem('gudang_data', JSON.stringify(gudang));
-            alert("Produk Disimpan");
+            showToast("Produk Berhasil Disimpan", "success");
             renderStok();
             document.getElementById('f-sku').value = '';
             document.getElementById('f-nama').value = '';
@@ -486,7 +633,7 @@
         // FUNGSI LAMA (Disesuaikan untuk Search Manual)
         function tambahKeCart(sku) {
             const produk = gudang.find(p => p.sku === sku);
-            if(!produk) return alert("Produk tidak ditemukan");
+            if(!produk) return showToast("Produk tidak ditemukan", "error");
             tambahKeCartCore(produk);
             renderCart();
         }
@@ -497,7 +644,7 @@
             let total = 0;
 
             if(cart.length === 0) {
-                list.innerHTML = `<div class="text-center py-10 text-gray-300 font-bold">Keranjang Kosong</div>`;
+                list.innerHTML = `<div class="text-center py-10 text-gray-300 text-sm">Keranjang Kosong</div>`;
             } else {
                 list.innerHTML = cart.map((item, i) => {
                     total += item.harga * item.qty;
@@ -545,16 +692,135 @@
         }
 
         function bayarSekarang() {
-            if(cart.length === 0) return alert("Kosong!");
+            if(cart.length === 0) return showToast("Keranjang Kosong!", "error");
+            
+            let totalBayar = 0;
+            const itemsStruk = [];
+
             cart.forEach(item => {
                 const p = gudang.find(x => x.sku === item.sku);
                 if(p) p.stok -= item.qty;
+                totalBayar += (item.harga * item.qty);
+                itemsStruk.push({...item});
             });
+
+            // Simpan Transaksi
+            const transaksi = {
+                id: 'TRX-' + Date.now(),
+                tanggal: new Date().toISOString(),
+                items: itemsStruk,
+                total: totalBayar
+            };
+            riwayat.push(transaksi);
+            
             localStorage.setItem('gudang_data', JSON.stringify(gudang));
-            alert("Pembayaran Berhasil!");
+            localStorage.setItem('riwayat_transaksi', JSON.stringify(riwayat));
+            
+            showToast("Pembayaran Berhasil!", "success");
             cart = [];
             renderCart();
             renderStok();
+            tampilkanStruk(transaksi);
+        }
+
+        // STRUK & LAPORAN
+        function tampilkanStruk(trx) {
+            const area = document.getElementById('receipt-area');
+            const tgl = new Date(trx.tanggal).toLocaleString('id-ID');
+            
+            let html = `
+                <h3 class="font-bold text-xl mb-1">KASIR PINTAR</h3>
+                <p class="text-xs text-gray-500 mb-4">${tgl}<br>ID: ${trx.id}</p>
+                <div class="text-left border-t border-b border-dashed py-2 my-2 space-y-1 text-sm">
+            `;
+            
+            trx.items.forEach(item => {
+                html += `
+                    <div class="flex justify-between">
+                        <span>${item.nama} x${item.qty}</span>
+                        <span>${(item.harga * item.qty).toLocaleString()}</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                </div>
+                <div class="flex justify-between font-bold text-lg mt-2">
+                    <span>TOTAL</span>
+                    <span>Rp ${trx.total.toLocaleString()}</span>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-4">Terima Kasih</p>
+            `;
+            
+            area.innerHTML = html;
+            document.getElementById('modal-struk').classList.remove('hidden');
+        }
+
+        function tutupStruk() {
+            document.getElementById('modal-struk').classList.add('hidden');
+        }
+
+        function renderLaporan() {
+            const today = new Date().toDateString();
+            const trxHariIni = riwayat.filter(t => new Date(t.tanggal).toDateString() === today);
+            
+            const totalOmzet = trxHariIni.reduce((sum, t) => sum + t.total, 0);
+            
+            document.getElementById('omzet-hari-ini').innerText = `Rp ${totalOmzet.toLocaleString()}`;
+            document.getElementById('total-transaksi-hari').innerText = `${trxHariIni.length} Transaksi`;
+
+            const list = document.getElementById('list-riwayat');
+            list.innerHTML = riwayat.slice().reverse().map(t => `
+                <div onclick='tampilkanStruk(${JSON.stringify(t)})' class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border-b cursor-pointer hover:bg-gray-100">
+                    <div>
+                        <div class="font-bold text-sm text-gray-800">${new Date(t.tanggal).toLocaleTimeString('id-ID')}</div>
+                        <div class="text-xs text-gray-400">${t.id}</div>
+                    </div>
+                    <div class="font-bold text-indigo-600">Rp ${t.total.toLocaleString()}</div>
+                </div>
+            `).join('');
+        }
+
+        // BACKUP & RESTORE
+        function backupData() {
+            const data = { gudang, riwayat };
+            const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup_kasir_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+        }
+
+        function restoreData(input) {
+            const file = input.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if(data.gudang && data.riwayat) {
+                        gudang = data.gudang;
+                        riwayat = data.riwayat;
+                        localStorage.setItem('gudang_data', JSON.stringify(gudang));
+                        localStorage.setItem('riwayat_transaksi', JSON.stringify(riwayat));
+                        showToast("Data berhasil dipulihkan!", "success");
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showToast("Format file salah!", "error");
+                    }
+                } catch(err) {
+                    showToast("File rusak!", "error");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetAplikasi() {
+            if(confirm("Yakin hapus SEMUA data? Tidak bisa dikembalikan!")) {
+                localStorage.clear();
+                location.reload();
+            }
         }
 
         function resetCart() { cart = []; renderCart(); }
