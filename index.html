@@ -197,6 +197,8 @@
         let scanner = null;
         let scannerStok = null;
         let tempSku = '';
+        let lastScanCode = null;
+        let lastScanTime = 0;
 
         // JAM OTOMATIS
         setInterval(() => {
@@ -214,10 +216,18 @@
             
             // Mencoba paksa kamera belakang
             scanner.start({ facingMode: "environment" }, config, (decodedText) => {
+                const now = Date.now();
+                // Cegah scan berulang cepat (Cooldown 2 detik untuk kode yang sama)
+                if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
+                
+                lastScanCode = decodedText;
+                lastScanTime = now;
+
                 handleScanKasir(decodedText);
                 if(navigator.vibrate) navigator.vibrate(70);
             }).catch(err => {
-                alert("Gagal buka kamera: " + err);
+                if(err?.toString().includes("already")) return;
+                console.log("Gagal buka kamera: " + err);
                 document.getElementById('camera-prompt').style.display = 'flex';
             });
         }
@@ -257,9 +267,12 @@
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'text-indigo-600'));
             document.getElementById('nav-' + nama).classList.add('active');
 
-            if(nama !== 'kasir' && scanner) {
-                scanner.stop();
-                document.getElementById('camera-prompt').style.display = 'flex';
+            if(nama === 'kasir') {
+                setTimeout(startKamera, 100);
+            } else if(scanner) {
+                scanner.stop().then(() => {
+                    document.getElementById('camera-prompt').style.display = 'flex';
+                }).catch(err => console.log(err));
             }
             if(nama !== 'stok') {
                 tutupScannerStok();
@@ -468,7 +481,7 @@
 
         function resetCart() { cart = []; renderCart(); }
 
-        window.onload = () => { renderStok(); };
+        window.onload = () => { renderStok(); startKamera(); };
     </script>
 </body>
 </html>
