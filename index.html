@@ -318,8 +318,8 @@
                 initScanner();
             } else {
                 container.classList.add('hidden');
-                if (html5QrCode) {
-                    html5QrCode.stop().then(() => html5QrCode.clear());
+                if (html5QrCode && html5QrCode.isScanning) {
+                    html5QrCode.stop().then(() => html5QrCode.clear()).catch(err => console.log(err));
                 }
             }
         }
