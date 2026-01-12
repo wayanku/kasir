@@ -121,7 +121,7 @@
                 <div id="camera-prompt" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-6 text-center z-20">
                     <svg class="w-12 h-12 mb-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke-width="2"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"/></svg>
                     <p class="mb-4 text-sm">Kamera memerlukan izin akses</p>
-                    <button onclick="startKamera()" class="bg-indigo-600 px-6 py-3 rounded-xl font-bold shadow-lg">Aktifkan Kamera Belakang</button>
+                    <button onclick="startKamera()" class="bg-indigo-600 px-6 py-3 rounded-xl font-bold shadow-lg">Aktifkan Kamera</button>
                     <p class="mt-2 text-[10px] text-gray-400">Pastikan menggunakan HTTPS</p>
                 </div>
             </div>
@@ -357,71 +357,45 @@
                 aspectRatio: 1.333334 
             };
             
-            Html5Qrcode.getCameras().then(cameras => {
-                let selectedCameraId = null;
-                if (cameras && cameras.length > 0) {
-                    const backCameras = cameras.filter(c => {
-                        const label = c.label.toLowerCase();
-                        return label.includes('back') || label.includes('rear') || label.includes('belakang');
-                    });
+            // LOGIKA SEDERHANA: Langsung minta kamera belakang (environment)
+            // Browser akan otomatis minta izin jika belum ada.
+            scanner.start({ facingMode: "environment" }, config, onScanSuccess)
+            .then(() => {
+                // --- LOGIKA ZOOM SETELAH KAMERA JALAN ---
+                const track = scanner.getRunningTrack();
+                const capabilities = track.getCapabilities();
+                
+                const camControls = document.getElementById('cam-controls');
+                camControls.classList.remove('hidden');
+                camControls.classList.add('flex');
 
-                    if (backCameras.length > 0) {
-                        const mainCamera = backCameras.find(c => {
-                            const label = c.label.toLowerCase();
-                            const isUltraWide = label.includes('ultra') || label.includes('wide') && (label.includes('0.5') || label.includes('0.6'));
-                            return (label.includes('0') || label.includes('main') || label.includes('primary')) && !isUltraWide;
-                        });
-                        selectedCameraId = mainCamera ? mainCamera.id : backCameras[0].id;
-                    }
+                if (capabilities.zoom) {
+                    const zoomBox = document.getElementById('zoom-box');
+                    const zoomSlider = document.getElementById('zoom-slider');
+                    const zoomValue = document.getElementById('zoom-value');
+                    zoomBox.classList.remove('hidden');
+                    zoomSlider.min = capabilities.zoom.min;
+                    zoomSlider.max = capabilities.zoom.max;
+                    zoomSlider.step = capabilities.zoom.step;
+                    
+                    zoomSlider.oninput = () => {
+                        const val = zoomSlider.value;
+                        zoomValue.innerText = val + 'x';
+                        track.applyConstraints({ advanced: [{ zoom: val }] });
+                    };
                 }
 
-                const constraints = selectedCameraId ? { deviceId: { exact: selectedCameraId } } : { facingMode: "environment" };
-
-                // Jalankan Scanner
-                scanner.start(constraints, config, onScanSuccess).then(() => {
-                    // --- LOGIKA ZOOM SETELAH KAMERA JALAN ---
-                    const track = scanner.getRunningTrack();
-                    const capabilities = track.getCapabilities();
-                    
-                    const camControls = document.getElementById('cam-controls');
-                    camControls.classList.remove('hidden');
-                    camControls.classList.add('flex');
-
-                    if (capabilities.zoom) {
-                        const zoomBox = document.getElementById('zoom-box');
-                        const zoomSlider = document.getElementById('zoom-slider');
-                        const zoomValue = document.getElementById('zoom-value');
-                        zoomBox.classList.remove('hidden');
-                        zoomSlider.min = capabilities.zoom.min;
-                        zoomSlider.max = capabilities.zoom.max;
-                        zoomSlider.step = capabilities.zoom.step;
-                        
-                        zoomSlider.oninput = () => {
-                            const val = zoomSlider.value;
-                            zoomValue.innerText = val + 'x';
-                            track.applyConstraints({ advanced: [{ zoom: val }] });
-                        };
-                    }
-
-                    if (capabilities.torch) {
-                        document.getElementById('btn-flash').classList.remove('hidden');
-                    }
-
-                }).catch(err => {
-                    console.warn("Gagal start kamera spesifik, mencoba mode kompatibilitas...", err);
-                    // FALLBACK: Coba mode environment standar tanpa ID spesifik dan tanpa aspect ratio
-                    scanner.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 200 } }, onScanSuccess)
-                    .catch(errFinal => {
-                        console.error("Gagal total:", errFinal);
-                        document.getElementById('camera-prompt').style.display = 'flex';
-                    });
-                });
-
-            }).catch(err => {
-                console.warn("Gagal mendapatkan list kamera, mencoba start langsung...", err);
-                scanner.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 200 } }, onScanSuccess)
+                if (capabilities.torch) {
+                    document.getElementById('btn-flash').classList.remove('hidden');
+                }
+            })
+            .catch(err => {
+                console.warn("Gagal start environment, mencoba mode user...", err);
+                // Fallback: Coba kamera depan/user jika belakang gagal
+                scanner.start({ facingMode: "user" }, config, onScanSuccess)
                 .catch(errFinal => {
                     console.error("Gagal total:", errFinal);
+                    // Tampilkan tombol manual hanya jika benar-benar gagal total
                     document.getElementById('camera-prompt').style.display = 'flex';
                 });
             });
