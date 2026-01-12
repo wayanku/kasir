@@ -2,241 +2,270 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KasirPro - Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KASIR PINTAR PRO</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Library Kamera -->
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f1f5f9; }
-        .page { display: none; min-height: 100vh; padding-bottom: 80px; }
-        .page.active { display: block; }
-        #reader { border: none !important; border-radius: 20px; overflow: hidden; }
-        #reader__scan_region { background: white; }
-        .btn-nav.active { color: #4F46E5; }
-        .btn-nav.active svg { transform: translateY(-5px); color: #4F46E5; transition: all 0.3s; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; }
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* AREA KAMERA */
+        #reader { 
+            width: 100% !important; 
+            min-height: 300px; 
+            background: #1e1e2e;
+            border: none !important;
+        }
+        #reader video { 
+            object-fit: cover !important; 
+            border-radius: 24px;
+        }
+        
+        .scan-container {
+            position: relative;
+            border-radius: 28px;
+            overflow: hidden;
+            background: #000;
+            border: 4px solid white;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        /* Garis Laser */
+        .laser {
+            position: absolute; width: 100%; height: 2px;
+            background: #4F46E5;
+            box-shadow: 0 0 15px 2px #4F46E5;
+            top: 0; z-index: 10;
+            animation: moveLaser 2s infinite ease-in-out;
+            pointer-events: none;
+        }
+        @keyframes moveLaser {
+            0% { top: 10%; }
+            50% { top: 90%; }
+            100% { top: 10%; }
+        }
+
+        .nav-btn.active { color: #4F46E5; }
+        .nav-btn.active svg { transform: translateY(-3px); }
     </style>
 </head>
-<body>
+<body class="pb-24">
 
-    <!-- HALAMAN 1: SCANNER (KASIR) -->
-    <div id="page-scan" class="page active">
-        <header class="p-4 bg-white shadow-sm flex justify-between items-center sticky top-0 z-50">
-            <h1 class="text-xl font-bold text-indigo-600">KasirPro</h1>
-            <button onclick="toggleSearch()" class="p-2 bg-gray-100 rounded-full hover:bg-indigo-100 transition">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-            </button>
-        </header>
+    <!-- HEADER -->
+    <header class="p-6 bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b flex justify-between items-center">
+        <div>
+            <h1 class="text-xl font-bold text-indigo-900">Kasir<span class="text-indigo-500">Pintar</span></h1>
+            <p id="clock" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest"></p>
+        </div>
+        <button onclick="toggleSearch()" class="p-3 bg-indigo-50 rounded-full text-indigo-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+    </header>
 
-        <div class="max-w-md mx-auto p-4 space-y-4">
-            <!-- Search Bar (Hidden by default) -->
-            <div id="search-container" class="hidden transition-all duration-300">
-                <div class="relative">
-                    <input type="text" id="manual-sku" onkeyup="searchManual(this.value)" placeholder="Cari nama produk atau SKU..." class="w-full p-4 pl-12 bg-white rounded-2xl shadow-sm border-none focus:ring-2 focus:ring-indigo-500 outline-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-4 top-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <div id="search-results" class="absolute w-full bg-white mt-2 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto hidden"></div>
-                </div>
-            </div>
+    <!-- SEARCH OVERLAY -->
+    <div id="search-box" class="fixed inset-0 bg-white z-[60] p-6 hidden">
+        <div class="flex items-center gap-4 mb-6">
+            <input type="text" id="in-search" onkeyup="doSearch(this.value)" placeholder="Cari nama atau kode..." class="w-full p-4 bg-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500">
+            <button onclick="toggleSearch()" class="text-sm font-bold text-red-500">Batal</button>
+        </div>
+        <div id="res-search" class="space-y-4"></div>
+    </div>
 
-            <!-- Kamera Area -->
-            <div class="bg-black rounded-[30px] overflow-hidden shadow-2xl relative border-4 border-white">
+    <main class="p-4 max-w-4xl mx-auto">
+        
+        <!-- HALAMAN KASIR -->
+        <div id="p-kasir" class="page active space-y-6">
+            <!-- Scan Window -->
+            <div class="scan-container">
                 <div id="reader"></div>
-                <div class="absolute bottom-4 left-0 right-0 text-center">
-                    <span class="bg-black/50 text-white text-[10px] px-3 py-1 rounded-full backdrop-blur-sm">Arahkan kamera ke Barcode/QR</span>
+                <div class="laser"></div>
+                <!-- Tombol Jika Kamera Tidak Muncul -->
+                <div id="camera-prompt" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-6 text-center z-20">
+                    <svg class="w-12 h-12 mb-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke-width="2"/><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"/></svg>
+                    <p class="mb-4 text-sm">Kamera memerlukan izin akses</p>
+                    <button onclick="startKamera()" class="bg-indigo-600 px-6 py-3 rounded-xl font-bold shadow-lg">Aktifkan Kamera Belakang</button>
+                    <p class="mt-2 text-[10px] text-gray-400">Pastikan menggunakan HTTPS</p>
                 </div>
             </div>
 
-            <!-- Ringkasan Keranjang -->
-            <div class="bg-white p-5 rounded-[25px] shadow-sm border border-gray-100">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-bold text-gray-800">Item Terpilih</h3>
-                    <button onclick="clearCart()" class="text-xs text-red-500 font-semibold">Hapus Semua</button>
+            <!-- Keranjang -->
+            <div class="bg-white rounded-[32px] p-6 shadow-xl border border-gray-100">
+                <div class="flex justify-between mb-4">
+                    <h2 class="font-bold text-gray-800">Item Belanja</h2>
+                    <button onclick="resetCart()" class="text-xs text-red-500">Kosongkan</button>
                 </div>
-                <div id="cart-list" class="space-y-3 max-h-60 overflow-y-auto mb-4">
-                    <p class="text-center text-gray-400 py-4 text-sm">Scan barang untuk memulai...</p>
+                <div id="cart-list" class="space-y-4 max-h-[300px] overflow-y-auto mb-6">
+                    <div class="text-center py-10 text-gray-300">Belum ada item</div>
                 </div>
-                <div class="border-t pt-4">
-                    <div class="flex justify-between items-center mb-4">
-                        <span class="text-gray-500">Total Pembayaran</span>
-                        <span id="total-price" class="text-2xl font-bold text-indigo-600">Rp 0</span>
+                <div class="border-t pt-4 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Total</span>
+                        <span id="total-harga" class="text-2xl font-bold text-indigo-600">Rp 0</span>
                     </div>
-                    <button onclick="checkout()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-indigo-200 active:scale-95 transition">
-                        BAYAR SEKARANG
-                    </button>
+                    <button onclick="bayarSekarang()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-indigo-100 active:scale-95 transition">BAYAR</button>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- HALAMAN 2: INVENTORI (STOK) -->
-    <div id="page-stock" class="page">
-        <header class="p-4 bg-white shadow-sm sticky top-0 z-50">
-            <h1 class="text-xl font-bold">Manajemen Stok</h1>
-        </header>
-
-        <div class="max-w-4xl mx-auto p-4 space-y-6">
-            <!-- Form Tambah -->
-            <div class="bg-white p-6 rounded-[25px] shadow-sm">
-                <h3 class="font-bold mb-4 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    Tambah Produk Baru
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="p-sku" placeholder="Scan/Ketik SKU" class="p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="text" id="p-name" placeholder="Nama Barang" class="p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" id="p-price" placeholder="Harga Jual (Rp)" class="p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" id="p-stock" placeholder="Jumlah Stok" class="p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-indigo-500">
+        <!-- HALAMAN STOK -->
+        <div id="p-stok" class="page space-y-6">
+            <div class="bg-white p-6 rounded-[32px] shadow-sm border">
+                <h2 class="font-bold mb-4">Tambah Produk</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" id="f-sku" placeholder="SKU/Barcode" class="p-3 bg-gray-50 rounded-xl outline-none text-sm">
+                    <input type="text" id="f-nama" placeholder="Nama Produk" class="p-3 bg-gray-50 rounded-xl outline-none text-sm">
+                    <input type="number" id="f-harga" placeholder="Harga" class="p-3 bg-gray-50 rounded-xl outline-none text-sm">
+                    <input type="number" id="f-stok" placeholder="Jumlah Stok" class="p-3 bg-gray-50 rounded-xl outline-none text-sm">
                 </div>
-                <button onclick="saveProduct()" class="w-full mt-4 bg-emerald-500 text-white py-3 rounded-xl font-bold hover:bg-emerald-600 transition">Simpan ke Inventori</button>
+                <button onclick="simpanProduk()" class="w-full mt-4 bg-emerald-500 text-white py-3 rounded-xl font-bold">Simpan ke Gudang</button>
             </div>
 
-            <!-- Tabel Stok -->
-            <div class="bg-white rounded-[25px] shadow-sm overflow-hidden">
-                <div class="p-4 border-b">
-                    <h3 class="font-bold">Daftar Barang</h3>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="bg-gray-50 text-gray-500 text-sm">
-                            <tr>
-                                <th class="p-4">Produk</th>
-                                <th class="p-4">Harga</th>
-                                <th class="p-4 text-center">Stok</th>
-                                <th class="p-4">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventory-table"></tbody>
-                    </table>
-                </div>
+            <div class="bg-white rounded-[32px] shadow-sm border overflow-hidden">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="p-4">Produk</th>
+                            <th class="p-4">Stok</th>
+                            <th class="p-4">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="list-stok"></tbody>
+                </table>
             </div>
         </div>
-    </div>
+    </main>
 
-    <!-- BOTTOM NAVIGATION -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-8 py-3 flex justify-around items-center z-[100]">
-        <button onclick="switchPage('scan')" id="nav-scan" class="btn-nav active flex flex-col items-center gap-1">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 17h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-            </svg>
+    <!-- NAVIGASI -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around items-center z-50">
+        <button onclick="bukaHalaman('kasir')" id="nav-kasir" class="nav-btn active flex flex-col items-center gap-1">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 17h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" stroke-width="2"/></svg>
             <span class="text-[10px] font-bold">KASIR</span>
         </button>
-        <button onclick="switchPage('stock')" id="nav-stock" class="btn-nav flex flex-col items-center gap-1 text-gray-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
+        <button onclick="bukaHalaman('stok')" id="nav-stok" class="nav-btn text-gray-400 flex flex-col items-center gap-1">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-width="2"/></svg>
             <span class="text-[10px] font-bold">STOK</span>
         </button>
     </nav>
 
     <script>
-        let products = JSON.parse(localStorage.getItem('kasir_products')) || [];
+        let gudang = JSON.parse(localStorage.getItem('gudang_data')) || [];
         let cart = [];
         let scanner = null;
 
-        // NAVIGATION LOGIC
-        function switchPage(pageId) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.querySelectorAll('.btn-nav').forEach(b => b.classList.remove('active', 'text-indigo-600'));
-            document.querySelectorAll('.btn-nav').forEach(b => b.classList.add('text-gray-400'));
+        // JAM OTOMATIS
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString('id-ID');
+        }, 1000);
 
-            document.getElementById('page-' + pageId).classList.add('active');
-            const activeNav = document.getElementById('nav-' + pageId);
-            activeNav.classList.add('active', 'text-indigo-600');
-            activeNav.classList.remove('text-gray-400');
-
-            if(pageId === 'scan') {
-                startScanner();
-            } else {
-                if(scanner) scanner.clear();
-                renderInventory();
+        // KAMERA ENGINE
+        function startKamera() {
+            document.getElementById('camera-prompt').style.display = 'none';
+            if (!scanner) {
+                scanner = new Html5Qrcode("reader");
             }
-        }
-
-        // SCANNER LOGIC
-        function startScanner() {
-            if(!scanner) {
-                scanner = new Html5QrcodeScanner("reader", { 
-                    fps: 15, 
-                    qrbox: {width: 250, height: 150},
-                    aspectRatio: 1.0
-                });
-            }
-            scanner.render((text) => {
-                addToCart(text);
-                vibrate();
+            
+            const config = { fps: 20, qrbox: { width: 250, height: 200 } };
+            
+            // Mencoba paksa kamera belakang
+            scanner.start({ facingMode: "environment" }, config, (decodedText) => {
+                tambahKeCart(decodedText);
+                if(navigator.vibrate) navigator.vibrate(70);
+            }).catch(err => {
+                alert("Gagal buka kamera: " + err);
+                document.getElementById('camera-prompt').style.display = 'flex';
             });
         }
 
-        function vibrate() { if(navigator.vibrate) navigator.vibrate(100); }
+        // NAVIGASI HALAMAN
+        function bukaHalaman(nama) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('p-' + nama).classList.add('active');
+            
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'text-indigo-600'));
+            document.getElementById('nav-' + nama).classList.add('active');
 
-        function toggleSearch() {
-            const container = document.getElementById('search-container');
-            container.classList.toggle('hidden');
-            if(!container.classList.contains('hidden')) document.getElementById('manual-sku').focus();
+            if(nama !== 'kasir' && scanner) {
+                scanner.stop();
+            }
         }
 
-        function searchManual(val) {
-            const results = document.getElementById('search-results');
-            if(val.length < 2) { results.classList.add('hidden'); return; }
-            
-            const filtered = products.filter(p => 
-                p.name.toLowerCase().includes(val.toLowerCase()) || 
-                p.sku.toLowerCase().includes(val.toLowerCase())
-            );
+        // SEARCH
+        function toggleSearch() {
+            const box = document.getElementById('search-box');
+            box.classList.toggle('hidden');
+            if(!box.classList.contains('hidden')) document.getElementById('in-search').focus();
+        }
 
-            results.innerHTML = filtered.map(p => `
-                <div onclick="addToCart('${p.sku}'); toggleSearch();" class="p-4 hover:bg-gray-50 border-b cursor-pointer flex justify-between">
-                    <span>${p.name}</span>
-                    <span class="font-bold">Rp ${p.price.toLocaleString()}</span>
+        function doSearch(val) {
+            const res = document.getElementById('res-search');
+            if(val.length < 2) { res.innerHTML = ""; return; }
+            
+            const filtered = gudang.filter(p => p.nama.toLowerCase().includes(val.toLowerCase()) || p.sku.includes(val));
+            res.innerHTML = filtered.map(p => `
+                <div onclick="tambahKeCart('${p.sku}'); toggleSearch()" class="p-4 bg-gray-50 rounded-2xl flex justify-between border-b">
+                    <div><b>${p.nama}</b><br><small>${p.sku}</small></div>
+                    <div class="text-indigo-600 font-bold">Rp ${parseInt(p.harga).toLocaleString()}</div>
                 </div>
             `).join('');
-            results.classList.remove('hidden');
         }
 
         // CORE LOGIC
-        function addToCart(sku) {
-            const product = products.find(p => p.sku === sku);
-            if(!product) return; // Silent if not found during scan
+        function simpanProduk() {
+            const sku = document.getElementById('f-sku').value;
+            const nama = document.getElementById('f-nama').value;
+            const harga = document.getElementById('f-harga').value;
+            const stok = document.getElementById('f-stok').value;
 
-            const inCart = cart.find(item => item.sku === sku);
-            if(inCart) {
-                if(inCart.qty < product.stock) inCart.qty++;
-                else alert("Stok terbatas!");
+            if(!sku || !nama || !harga) return alert("Data belum lengkap!");
+
+            const index = gudang.findIndex(p => p.sku === sku);
+            if(index > -1) gudang[index] = {sku, nama, harga, stok};
+            else gudang.push({sku, nama, harga, stok});
+
+            localStorage.setItem('gudang_data', JSON.stringify(gudang));
+            alert("Produk Disimpan");
+            renderStok();
+        }
+
+        function tambahKeCart(sku) {
+            const produk = gudang.find(p => p.sku === sku);
+            if(!produk) return;
+
+            const diCart = cart.find(c => c.sku === sku);
+            if(diCart) {
+                if(diCart.qty < produk.stok) diCart.qty++;
             } else {
-                cart.push({ ...product, qty: 1 });
+                cart.push({...produk, qty: 1});
             }
             renderCart();
-            document.getElementById('search-results').classList.add('hidden');
-            document.getElementById('manual-sku').value = "";
         }
 
         function renderCart() {
             const list = document.getElementById('cart-list');
-            const totalEl = document.getElementById('total-price');
+            const totalEl = document.getElementById('total-harga');
             let total = 0;
 
             if(cart.length === 0) {
-                list.innerHTML = `<p class="text-center text-gray-400 py-4 text-sm">Scan barang untuk memulai...</p>`;
+                list.innerHTML = `<div class="text-center py-10 text-gray-300 font-bold">Keranjang Kosong</div>`;
             } else {
                 list.innerHTML = cart.map((item, i) => {
-                    total += item.price * item.qty;
+                    total += item.harga * item.qty;
                     return `
-                        <div class="flex justify-between items-center animate-slide-in">
-                            <div class="flex-1">
-                                <h4 class="font-bold text-sm">${item.name}</h4>
-                                <p class="text-xs text-gray-500">${item.qty} x Rp ${item.price.toLocaleString()}</p>
+                        <div class="flex justify-between items-center bg-gray-50 p-3 rounded-2xl">
+                            <div>
+                                <div class="font-bold text-sm">${item.nama}</div>
+                                <div class="text-xs text-gray-400">Rp ${parseInt(item.harga).toLocaleString()}</div>
                             </div>
                             <div class="flex items-center gap-3">
-                                <button onclick="updateQty(${i}, -1)" class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">-</button>
-                                <span class="font-bold text-sm">${item.qty}</span>
-                                <button onclick="updateQty(${i}, 1)" class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">+</button>
+                                <button onclick="updateQty(${i}, -1)" class="w-8 h-8 bg-white rounded-lg">-</button>
+                                <span class="font-bold">${item.qty}</span>
+                                <button onclick="updateQty(${i}, 1)" class="w-8 h-8 bg-white rounded-lg">+</button>
                             </div>
                         </div>
                     `;
@@ -245,80 +274,47 @@
             totalEl.innerText = `Rp ${total.toLocaleString()}`;
         }
 
-        function updateQty(i, change) {
-            cart[i].qty += change;
+        function updateQty(i, n) {
+            cart[i].qty += n;
             if(cart[i].qty <= 0) cart.splice(i, 1);
             renderCart();
         }
 
-        function saveProduct() {
-            const sku = document.getElementById('p-sku').value;
-            const name = document.getElementById('p-name').value;
-            const price = parseInt(document.getElementById('p-price').value);
-            const stock = parseInt(document.getElementById('p-stock').value);
-
-            if(!sku || !name || isNaN(price)) return alert("Isi data dengan benar!");
-
-            const idx = products.findIndex(p => p.sku === sku);
-            if(idx >= 0) products[idx] = {sku, name, price, stock};
-            else products.push({sku, name, price, stock});
-
-            localStorage.setItem('kasir_products', JSON.stringify(products));
-            alert("Berhasil disimpan!");
-            renderInventory();
-            ["p-sku", "p-name", "p-price", "p-stock"].forEach(id => document.getElementById(id).value = "");
-        }
-
-        function renderInventory() {
-            const tbody = document.getElementById('inventory-table');
-            tbody.innerHTML = products.map(p => `
-                <tr class="border-b text-sm">
-                    <td class="p-4">
-                        <p class="font-bold">${p.name}</p>
-                        <p class="text-xs text-gray-400">${p.sku}</p>
-                    </td>
-                    <td class="p-4">Rp ${p.price.toLocaleString()}</td>
-                    <td class="p-4 text-center">
-                        <span class="px-2 py-1 rounded-md font-bold ${p.stock < 5 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}">
-                            ${p.stock}
-                        </span>
-                    </td>
-                    <td class="p-4">
-                        <button onclick="deleteProduct('${p.sku}')" class="text-red-400">Hapus</button>
-                    </td>
+        function renderStok() {
+            const list = document.getElementById('list-stok');
+            list.innerHTML = gudang.map(p => `
+                <tr class="border-b">
+                    <td class="p-4"><b>${p.nama}</b><br><small>${p.sku}</small></td>
+                    <td class="p-4"><span class="px-2 py-1 rounded-lg font-bold ${p.stok < 5 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}">${p.stok}</span></td>
+                    <td class="p-4"><button onclick="hapusProduk('${p.sku}')" class="text-red-500 font-bold">Hapus</button></td>
                 </tr>
             `).join('');
         }
 
-        function deleteProduct(sku) {
-            if(confirm('Hapus barang ini?')) {
-                products = products.filter(p => p.sku !== sku);
-                localStorage.setItem('kasir_products', JSON.stringify(products));
-                renderInventory();
+        function hapusProduk(sku) {
+            if(confirm('Hapus item?')) {
+                gudang = gudang.filter(p => p.sku !== sku);
+                localStorage.setItem('gudang_data', JSON.stringify(gudang));
+                renderStok();
             }
         }
 
-        function checkout() {
-            if(cart.length === 0) return alert("Keranjang masih kosong!");
+        function bayarSekarang() {
+            if(cart.length === 0) return alert("Kosong!");
             cart.forEach(item => {
-                const p = products.find(x => x.sku === item.sku);
-                if(p) p.stock -= item.qty;
+                const p = gudang.find(x => x.sku === item.sku);
+                if(p) p.stok -= item.qty;
             });
-            localStorage.setItem('kasir_products', JSON.stringify(products));
+            localStorage.setItem('gudang_data', JSON.stringify(gudang));
             alert("Pembayaran Berhasil!");
             cart = [];
             renderCart();
+            renderStok();
         }
 
-        function clearCart() { cart = []; renderCart(); }
+        function resetCart() { cart = []; renderCart(); }
 
-        // Start App
-        window.onload = () => {
-            startScanner();
-            renderInventory();
-        };
-
-        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+        window.onload = () => { renderStok(); };
     </script>
 </body>
 </html>
