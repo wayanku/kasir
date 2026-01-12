@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff">
     <title>SmartPOS Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -119,6 +120,9 @@
                     <div class="scan-laser"></div>
                 </div>
 
+                <!-- Live Scan Feed (Daftar Barang yang Baru Discan) -->
+                <div id="scan-feed" class="mb-6 space-y-2"></div>
+
                 <!-- Categories (Optional Placeholder) -->
                 <div class="flex gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
                     <button onclick="filterCategory('all')" class="px-4 py-2 bg-slate-800 text-white rounded-full text-xs font-bold shadow-md whitespace-nowrap hover:bg-slate-700 transition">Semua</button>
@@ -132,6 +136,9 @@
                 </div>
             </div>
         </main>
+
+        <!-- Mobile Cart Backdrop -->
+        <div id="cart-backdrop" onclick="toggleMobileCart()" class="fixed inset-0 bg-black/50 z-[55] hidden md:hidden transition-opacity duration-300 opacity-0 backdrop-blur-sm"></div>
 
         <!-- RIGHT PANEL: CART -->
         <aside id="panel-cart" class="w-full md:w-96 bg-white border-l border-slate-200 flex flex-col h-[85vh] md:h-full shadow-2xl md:shadow-none z-[60] rounded-t-[30px] md:rounded-none fixed bottom-0 md:relative transition-transform duration-300 translate-y-full md:translate-y-0">
@@ -219,7 +226,7 @@
     </div>
 
     <!-- MOBILE BOTTOM NAV -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center h-16 z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-slate-200 flex justify-around items-center h-16 z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
         <button onclick="switchTab('pos')" class="nav-btn-mobile active flex flex-col items-center justify-center w-full h-full text-blue-600">
             <i data-lucide="layout-grid" class="w-5 h-5"></i>
             <span class="text-[10px] font-bold mt-1">Kasir</span>
@@ -378,15 +385,26 @@
                 else cart.push({ ...product, qty: 1 });
                 renderCart();
                 
-                // Tampilkan info barang yang discan dengan jelas (Visual Feedback)
-                Swal.fire({
-                    title: product.name,
-                    text: `Harga: Rp ${product.price.toLocaleString()} | Total Qty: ${item ? item.qty + 1 : 1}`,
-                    icon: 'success',
-                    timer: 1000,
-                    showConfirmButton: false,
-                    backdrop: false // Supaya tidak mengganggu flow scan
-                });
+                // Tampilkan di Live Feed (Bawah Scanner) - Pisah baris setiap scan
+                const feed = document.getElementById('scan-feed');
+                const feedItem = document.createElement('div');
+                feedItem.className = "bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center animate-[fadeIn_0.3s_ease-out]";
+                feedItem.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="h-8 w-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs">1x</div>
+                        <div>
+                            <p class="font-bold text-slate-800 text-sm leading-tight">${product.name}</p>
+                            <p class="text-[10px] text-slate-500">${dayjs().format('HH:mm:ss')}</p>
+                        </div>
+                    </div>
+                    <p class="font-bold text-slate-800 text-sm">Rp ${product.price.toLocaleString()}</p>
+                `;
+                feed.prepend(feedItem); // Tambah ke paling atas
+                
+                // Hapus log lama jika lebih dari 5 agar tidak kepanjangan
+                if (feed.children.length > 5) {
+                    feed.lastElementChild.remove();
+                }
             } else {
                 showAddProductForm(id);
             }
@@ -496,7 +514,17 @@
 
         function toggleMobileCart() {
             const cartPanel = document.getElementById('panel-cart');
+            const backdrop = document.getElementById('cart-backdrop');
+            
             cartPanel.classList.toggle('translate-y-full');
+            
+            if (cartPanel.classList.contains('translate-y-full')) {
+                backdrop.classList.remove('opacity-100');
+                setTimeout(() => backdrop.classList.add('hidden'), 300);
+            } else {
+                backdrop.classList.remove('hidden');
+                setTimeout(() => backdrop.classList.add('opacity-100'), 10);
+            }
         }
 
         // --- UI FUNCTIONS ---
@@ -638,7 +666,7 @@
             }
 
             grid.innerHTML = filteredDb.map(p => `
-                <div onclick="processItem('${p.id}')" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition group relative overflow-hidden">
+                <div onclick="processItem('${p.id}')" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 active:scale-95 transition group relative overflow-hidden">
                     <div class="absolute top-0 right-0 bg-slate-100 text-[10px] px-2 py-1 rounded-bl-lg text-slate-500 font-mono">${p.stock}</div>
                     <div class="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center mb-3 group-hover:bg-blue-600 transition">
                         <span class="text-xl font-bold text-blue-500 group-hover:text-white transition">${p.name.charAt(0)}</span>
