@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SmartPOS Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -81,6 +81,7 @@
         </div>
         <nav class="flex-1 flex flex-col gap-4 w-full px-2">
             <button onclick="switchTab('pos')" class="nav-btn active p-3 rounded-xl hover:bg-slate-800 transition flex justify-center text-blue-400 bg-slate-800"><i data-lucide="layout-grid"></i></button>
+            <button onclick="switchTab('history')" class="nav-btn p-3 rounded-xl hover:bg-slate-800 transition flex justify-center text-slate-400"><i data-lucide="history"></i></button>
             <button onclick="switchTab('stock')" class="nav-btn p-3 rounded-xl hover:bg-slate-800 transition flex justify-center text-slate-400"><i data-lucide="package"></i></button>
             <button onclick="openSettings()" class="nav-btn p-3 rounded-xl hover:bg-slate-800 transition flex justify-center text-slate-400"><i data-lucide="settings"></i></button>
         </nav>
@@ -111,7 +112,7 @@
             <div class="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6">
                 
                 <!-- Scanner (Hidden by default on Desktop, Toggleable) -->
-                <div id="scanner-container" class="hidden mb-6 bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-800 relative max-w-sm mx-auto aspect-video">
+                <div id="scanner-container" class="hidden mb-6 bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-slate-800 relative w-full max-w-2xl mx-auto aspect-video">
                     <div id="reader" class="w-full h-full"></div>
                     <button onclick="toggleScanner()" class="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full z-20"><i data-lucide="x"></i></button>
                     <div class="scan-laser"></div>
@@ -119,9 +120,9 @@
 
                 <!-- Categories (Optional Placeholder) -->
                 <div class="flex gap-2 mb-6 overflow-x-auto pb-2 no-scrollbar">
-                    <button class="px-4 py-2 bg-slate-800 text-white rounded-full text-xs font-bold shadow-md whitespace-nowrap">Semua Barang</button>
-                    <button class="px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-full text-xs font-bold hover:bg-slate-50 whitespace-nowrap">Makanan</button>
-                    <button class="px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-full text-xs font-bold hover:bg-slate-50 whitespace-nowrap">Minuman</button>
+                    <button onclick="filterCategory('all')" class="px-4 py-2 bg-slate-800 text-white rounded-full text-xs font-bold shadow-md whitespace-nowrap hover:bg-slate-700 transition">Semua</button>
+                    <button onclick="filterCategory('makanan')" class="px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-full text-xs font-bold hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition whitespace-nowrap">Makanan</button>
+                    <button onclick="filterCategory('minuman')" class="px-4 py-2 bg-white text-slate-600 border border-slate-200 rounded-full text-xs font-bold hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition whitespace-nowrap">Minuman</button>
                 </div>
 
                 <!-- Grid Items -->
@@ -137,6 +138,7 @@
             <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-white rounded-t-[30px] md:rounded-none">
                 <h2 class="font-bold text-lg text-slate-800">Keranjang</h2>
                 <div class="flex gap-2">
+                    <button onclick="holdCart()" class="text-orange-500 hover:bg-orange-50 p-2 rounded-lg text-xs font-bold transition" title="Tunda Transaksi"><i data-lucide="pause-circle" class="w-4 h-4"></i></button>
                     <button onclick="clearCart()" class="text-red-500 hover:bg-red-50 p-2 rounded-lg text-xs font-bold transition">Hapus</button>
                     <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold" id="cart-badge">0 Item</span>
                 </div>
@@ -189,6 +191,28 @@
             </div>
         </div>
 
+        <!-- HISTORY PANEL (New Feature) -->
+        <div id="panel-history" class="hidden absolute inset-0 bg-slate-50 z-50 flex flex-col">
+            <header class="bg-white h-16 border-b border-slate-200 flex items-center px-6 justify-between">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="history" class="text-blue-600"></i> Riwayat Transaksi</h2>
+                <button onclick="switchTab('pos')" class="md:hidden p-2 bg-slate-100 rounded-full"><i data-lucide="x"></i></button>
+            </header>
+            <div class="p-6 overflow-y-auto custom-scrollbar">
+                <!-- Dashboard Stats -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <p class="text-xs text-slate-500 uppercase font-bold">Omzet Hari Ini</p>
+                        <h3 id="today-sales" class="text-2xl font-black text-slate-800">Rp 0</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <p class="text-xs text-slate-500 uppercase font-bold">Total Transaksi</p>
+                        <h3 id="today-count" class="text-2xl font-black text-slate-800">0</h3>
+                    </div>
+                </div>
+                <div id="history-list" class="space-y-3"></div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Hidden Print Area -->
@@ -200,18 +224,23 @@
     <script>
         const DB_KEY = 'smartpos_pro_db';
         const URL_KEY = 'smartpos_gscript_url';
+        const TRX_KEY = 'smartpos_trx';
+        const CONFIG_KEY = 'smartpos_config';
         
         let db = JSON.parse(localStorage.getItem(DB_KEY)) || [
-            {id: "8999909001013", name: "Lada Hitam Bubuk", price: 2500, stock: 100},
-            {id: "8992753111034", name: "Kopi Kapal Api", price: 1500, stock: 50},
-            {id: "1001", name: "Nasi Goreng", price: 15000, stock: 100},
-            {id: "1002", name: "Es Teh Manis", price: 5000, stock: 100},
+            {id: "8999909001013", name: "Lada Hitam Bubuk", price: 2500, stock: 100, category: "makanan"},
+            {id: "8992753111034", name: "Kopi Kapal Api", price: 1500, stock: 50, category: "minuman"},
+            {id: "1001", name: "Nasi Goreng", price: 15000, stock: 100, category: "makanan"},
+            {id: "1002", name: "Es Teh Manis", price: 5000, stock: 100, category: "minuman"},
         ];
+        let transactions = JSON.parse(localStorage.getItem(TRX_KEY)) || [];
+        let storeConfig = JSON.parse(localStorage.getItem(CONFIG_KEY)) || { name: 'SmartPOS Pro', address: 'Jl. Merdeka No. 45, Jakarta', footer: 'Terima Kasih atas Kunjungan Anda' };
         let cart = [];
         let html5QrCode;
         let googleScriptUrl = localStorage.getItem(URL_KEY);
         let barcodeBuffer = ""; // Untuk USB Scanner
         let lastKeyTime = Date.now();
+        let currentCategory = 'all';
 
         // --- INIT & CORE FUNCTIONS ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -230,9 +259,15 @@
 
             html5QrCode = new Html5Qrcode("reader");
             const config = {
-                fps: 25,
-                qrbox: { width: 280, height: 140 },
-                aspectRatio: 1.0,
+                fps: 30, // Lebih responsif
+                // QR Box dinamis: 85% lebar layar, tinggi disesuaikan untuk barcode memanjang
+                qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    return {
+                        width: Math.floor(viewfinderWidth * 0.85),
+                        height: Math.floor(viewfinderHeight * 0.5)
+                    };
+                },
+                aspectRatio: 1.777778, // 16:9 (Sesuai container aspect-video)
                 formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.CODE_128 ],
                 // FITUR PRO: Gunakan deteksi native browser jika ada (lebih cepat & support miring)
                 experimentalFeatures: { useBarCodeDetectorIfSupported: true }
@@ -317,18 +352,41 @@
 
         // --- CLOUD SYNC FUNCTIONS ---
         function openSettings() {
+            // Fitur Pengaturan Toko & Cloud
             Swal.fire({
-                title: 'Pengaturan Cloud',
-                text: 'Masukkan URL Google Apps Script Web App Anda untuk mengaktifkan fitur online.',
-                input: 'url',
-                inputValue: googleScriptUrl,
-                inputPlaceholder: 'https://script.google.com/macros/s/...',
+                title: 'Pengaturan Toko',
+                html: `
+                    <div class="text-left space-y-2">
+                        <label class="text-xs font-bold text-gray-500">Nama Toko</label>
+                        <input id="set-name" class="swal2-input" style="margin:0 !important; width:100%;" value="${storeConfig.name}">
+                        
+                        <label class="text-xs font-bold text-gray-500">Alamat</label>
+                        <input id="set-address" class="swal2-input" style="margin:0 !important; width:100%;" value="${storeConfig.address}">
+                        
+                        <label class="text-xs font-bold text-gray-500">Footer Struk</label>
+                        <input id="set-footer" class="swal2-input" style="margin:0 !important; width:100%;" value="${storeConfig.footer}">
+                        
+                        <label class="text-xs font-bold text-gray-500 mt-4 block">Google Script URL (Cloud)</label>
+                        <input id="set-url" class="swal2-input" style="margin:0 !important; width:100%;" placeholder="https://script.google.com/..." value="${googleScriptUrl || ''}">
+                    </div>
+                `,
                 showCancelButton: true,
                 confirmButtonText: 'Simpan',
-                confirmButtonColor: '#007aff'
+                confirmButtonColor: '#007aff',
+                preConfirm: () => {
+                    return {
+                        name: document.getElementById('set-name').value,
+                        address: document.getElementById('set-address').value,
+                        footer: document.getElementById('set-footer').value,
+                        url: document.getElementById('set-url').value
+                    }
+                }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    googleScriptUrl = result.value;
+                    storeConfig = { name: result.value.name, address: result.value.address, footer: result.value.footer };
+                    googleScriptUrl = result.value.url;
+                    
+                    localStorage.setItem(CONFIG_KEY, JSON.stringify(storeConfig));
                     localStorage.setItem(URL_KEY, googleScriptUrl);
                     Swal.fire('Tersimpan', 'Koneksi cloud telah diperbarui.', 'success');
                 }
@@ -377,14 +435,20 @@
         function switchTab(tab) {
             const posPanel = document.getElementById('panel-pos');
             const stockPanel = document.getElementById('panel-stock');
+            const historyPanel = document.getElementById('panel-history');
             
+            posPanel.classList.add('hidden');
+            stockPanel.classList.add('hidden');
+            historyPanel.classList.add('hidden');
+
             if (tab === 'pos') {
                 posPanel.classList.remove('hidden');
-                stockPanel.classList.add('hidden');
-            } else {
-                posPanel.classList.add('hidden');
+            } else if (tab === 'stock') {
                 stockPanel.classList.remove('hidden');
                 renderStockList();
+            } else if (tab === 'history') {
+                historyPanel.classList.remove('hidden');
+                renderHistory();
             }
         }
 
@@ -397,6 +461,11 @@
                     <input id="sw-name" class="swal2-input" placeholder="Nama Barang">
                     <input id="sw-price" type="number" class="swal2-input" placeholder="Harga Jual">
                     <input id="sw-stock" type="number" class="swal2-input" placeholder="Stok Awal">
+                    <select id="sw-cat" class="swal2-input">
+                        <option value="umum">Umum</option>
+                        <option value="makanan">Makanan</option>
+                        <option value="minuman">Minuman</option>
+                    </select>
                 `,
                 confirmButtonText: 'Simpan',
                 showCancelButton: true,
@@ -407,6 +476,7 @@
                     const newName = document.getElementById('sw-name').value;
                     const newPrice = document.getElementById('sw-price').value;
                     const newStock = document.getElementById('sw-stock').value;
+                    const newCat = document.getElementById('sw-cat').value;
                     if (!newId || !newName || !newPrice || !newStock) {
                         Swal.showValidationMessage(`Semua field harus diisi`);
                         return false;
@@ -415,7 +485,8 @@
                         id: newId,
                         name: newName,
                         price: parseInt(newPrice),
-                        stock: parseInt(newStock)
+                        stock: parseInt(newStock),
+                        category: newCat
                     }
                 }
             }).then((result) => {
@@ -493,7 +564,10 @@
             const grid = document.getElementById('product-grid');
             const filter = document.getElementById('search-input').value.toLowerCase();
             
-            const filteredDb = db.filter(p => p.name.toLowerCase().includes(filter) || p.id.includes(filter));
+            let filteredDb = db.filter(p => p.name.toLowerCase().includes(filter) || p.id.includes(filter));
+            if (currentCategory !== 'all') {
+                filteredDb = filteredDb.filter(p => p.category === currentCategory);
+            }
 
             grid.innerHTML = filteredDb.map(p => `
                 <div onclick="processItem('${p.id}')" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-blue-300 transition group relative overflow-hidden">
@@ -508,6 +582,11 @@
         }
 
         function filterProducts() {
+            renderProductGrid();
+        }
+
+        function filterCategory(cat) {
+            currentCategory = cat;
             renderProductGrid();
         }
 
@@ -571,6 +650,27 @@
             renderCart();
         }
 
+        function holdCart() {
+            if (cart.length === 0) {
+                // Jika keranjang kosong, cek apakah ada yang di-hold
+                const heldCart = localStorage.getItem('smartpos_hold');
+                if (heldCart) {
+                    cart = JSON.parse(heldCart);
+                    localStorage.removeItem('smartpos_hold');
+                    renderCart();
+                    Swal.fire('Berhasil', 'Transaksi dilanjutkan kembali.', 'success');
+                } else {
+                    Swal.fire('Info', 'Keranjang kosong dan tidak ada transaksi tertunda.', 'info');
+                }
+            } else {
+                // Simpan keranjang saat ini
+                localStorage.setItem('smartpos_hold', JSON.stringify(cart));
+                cart = [];
+                renderCart();
+                Swal.fire('Tertunda', 'Transaksi disimpan sementara. Klik tombol pause lagi untuk melanjutkan.', 'success');
+            }
+        }
+
         function renderStockList() {
             const stockList = document.getElementById('stock-list');
             if (db.length === 0) {
@@ -591,6 +691,36 @@
                 </div>
             `).join('');
             lucide.createIcons();
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            const todayStr = dayjs().format('YYYY-MM-DD');
+            
+            // Hitung Omzet Hari Ini
+            const todayTrx = transactions.filter(t => t.date.startsWith(todayStr));
+            const todayTotal = todayTrx.reduce((sum, t) => sum + t.total, 0);
+            
+            document.getElementById('today-sales').innerText = `Rp ${todayTotal.toLocaleString()}`;
+            document.getElementById('today-count').innerText = todayTrx.length;
+
+            if (transactions.length === 0) {
+                list.innerHTML = `<p class="text-center text-gray-400 italic">Belum ada riwayat transaksi.</p>`;
+                return;
+            }
+
+            list.innerHTML = transactions.slice(0, 20).map(t => `
+                <div class="bg-white p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-slate-800 text-sm">${t.id}</p>
+                        <p class="text-xs text-slate-500">${dayjs(t.date).format('DD/MM/YYYY HH:mm')} &bull; ${t.method}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold text-blue-600">Rp ${t.total.toLocaleString()}</p>
+                        <button onclick='reprintReceipt(${JSON.stringify(t)})' class="text-xs text-slate-400 underline hover:text-slate-600">Cetak Ulang</button>
+                    </div>
+                </div>
+            `).join('');
         }
 
         // --- CHECKOUT & RECEIPT ---
@@ -636,27 +766,35 @@
                         showConfirmButton: false
                     });
 
-                    printReceipt(pay, change);
-                    finishTransaction('Cash');
+                    const trxData = {
+                        id: 'TRX-' + Date.now().toString().slice(-6),
+                        date: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+                        cart: [...cart], // Copy cart
+                        total: total,
+                        pay: pay,
+                        change: change,
+                        method: 'Cash'
+                    };
+
+                    printReceipt(trxData);
+                    finishTransaction(trxData);
                 }
             });
         }
 
-        function printReceipt(pay, change) {
-            const now = dayjs().format('DD/MM/YYYY HH:mm:ss');
+        function printReceipt(trx) {
             let total = 0;
-            
-            // Generate HTML Struk untuk Thermal Printer (58mm/80mm)
             let html = `
                 <div style="font-family: monospace; width: 100%; max-width: 300px; font-size: 12px; color: black;">
                     <div style="text-align: center; margin-bottom: 10px;">
-                        <h2 style="margin:0; font-size: 16px;">SMARTPOS PRO</h2>
-                        <p style="margin:0;">Jl. Contoh No. 123</p>
-                        <p style="margin:0;">${now}</p>
+                        <h2 style="margin:0; font-size: 16px; font-weight:bold;">${storeConfig.name}</h2>
+                        <p style="margin:0;">${storeConfig.address}</p>
+                        <p style="margin:0;">${trx.date}</p>
+                        <p style="margin:0;">${trx.id}</p>
                     </div>
                     <hr style="border-top: 1px dashed black;">
                     <table style="width: 100%; text-align: left;">
-                        ${cart.map(item => {
+                        ${trx.cart.map(item => {
                             total += item.price * item.qty;
                             return `
                                 <tr><td colspan="2" style="padding-top: 4px;">${item.name}</td></tr>
@@ -670,40 +808,46 @@
                     <hr style="border-top: 1px dashed black;">
                     <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 14px;">
                         <span>TOTAL</span>
-                        <span>Rp ${total.toLocaleString()}</span>
+                        <span>Rp ${trx.total.toLocaleString()}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between;">
                         <span>Bayar</span>
-                        <span>Rp ${pay.toLocaleString()}</span>
+                        <span>Rp ${trx.pay.toLocaleString()}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between;">
                         <span>Kembali</span>
-                        <span>Rp ${change.toLocaleString()}</span>
+                        <span>Rp ${trx.change.toLocaleString()}</span>
                     </div>
                     <hr style="border-top: 1px dashed black;">
                     <div style="text-align: center; margin-top: 10px;">
-                        <p>Terima Kasih</p>
+                        <p>${storeConfig.footer}</p>
                     </div>
                 </div>
             `;
 
             const printArea = document.getElementById('receipt-print-area');
             printArea.innerHTML = html;
-            window.print();
+            setTimeout(() => window.print(), 500);
         }
 
-        function finishTransaction(method = 'Cash') {
-            const transactionId = 'TRX-' + Date.now().toString().slice(-6);
-            const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        function reprintReceipt(trx) {
+            printReceipt(trx);
+        }
 
-            // 1. Kirim ke Google Sheet (Fire and Forget)
+        function finishTransaction(trxData) {
+            // 1. Simpan ke Riwayat Lokal
+            transactions.unshift(trxData);
+            if (transactions.length > 100) transactions.pop(); // Simpan max 100 terakhir
+            localStorage.setItem(TRX_KEY, JSON.stringify(transactions));
+
+            // 2. Kirim ke Google Sheet (Fire and Forget)
             if (googleScriptUrl) {
                 sendToCloud({
                     action: 'transaction',
-                    id: transactionId,
-                    cart: cart,
-                    total: total,
-                    method: method
+                    id: trxData.id,
+                    cart: trxData.cart,
+                    total: trxData.total,
+                    method: trxData.method
                 });
             }
 
