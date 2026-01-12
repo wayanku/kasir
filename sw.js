@@ -1,10 +1,10 @@
-const CACHE_NAME = 'smartpos-offline-v1';
+const CACHE_NAME = 'smartpos-offline-v9';
 const FILES_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
     'https://cdn.tailwindcss.com',
-    'https://unpkg.com/html5-qrcode',
+    'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
     'https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js',
     'https://unpkg.com/lucide@latest',
     'https://cdn.jsdelivr.net/npm/sweetalert2@11',
