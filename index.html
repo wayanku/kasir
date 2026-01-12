@@ -212,38 +212,50 @@
                 scanner = new Html5Qrcode("reader");
             }
             
-            const config = { fps: 20, qrbox: { width: 250, height: 200 } };
+            const config = { 
+                fps: 20, 
+                qrbox: { width: 250, height: 200 },
+                // Menambahkan aspek rasio standar untuk menghindari lensa ultra-wide yang biasanya sangat lebar
+                aspectRatio: 1.333334 
+            };
             
-            // Logika untuk memilih kamera utama (bukan ultrawide)
             Html5Qrcode.getCameras().then(cameras => {
-                let cameraId = null;
-                if (cameras && cameras.length) {
-                    // Cari kamera belakang (cek label karena facing mode tidak selalu tersedia)
-                    const rearCameras = cameras.filter(camera => 
-                        (camera.facing === 'environment') || 
-                        (camera.label && (
-                            camera.label.toLowerCase().includes('back') || 
-                            camera.label.toLowerCase().includes('belakang') ||
-                            camera.label.toLowerCase().includes('rear')
-                        ))
-                    );
+                let selectedCameraId = null;
 
-                    if (rearCameras.length > 0) {
-                        // Heuristik: Hindari 'ultra' (ultrawide) dan 'tele' (zoom).
-                        // Jangan filter 'wide' karena kamera utama sering disebut 'Wide' (misal: Back Camera (Wide)).
-                        const mainCamera = rearCameras.find(c => {
+                if (cameras && cameras.length > 0) {
+                    // 1. Filter hanya kamera belakang
+                    const backCameras = cameras.filter(c => {
+                        const label = c.label.toLowerCase();
+                        return label.includes('back') || label.includes('rear') || label.includes('belakang');
+                    });
+
+                    if (backCameras.length > 0) {
+                        // 2. Cari Kamera Utama dengan kata kunci negatif (menghindari ultra-wide/tele/macro)
+                        // Kita mencari yang labelnya mengandung "0" (biasanya index kamera utama) 
+                        // atau yang TIDAK mengandung kata-kata lensa tambahan.
+                        const mainCamera = backCameras.find(c => {
                             const label = c.label.toLowerCase();
-                            return !label.includes('ultra') && !label.includes('tele');
+                            const isUltraWide = label.includes('ultra') || label.includes('wide') && label.includes('0.5') || label.includes('0.6');
+                            const isSpecial = label.includes('tele') || label.includes('macro') || label.includes('depth') || label.includes('virtual');
+                            
+                            // Prioritaskan yang ada angka "0" atau "primary" atau "main"
+                            return (label.includes('0') || label.includes('main') || label.includes('primary')) && !isUltraWide && !isSpecial;
                         });
+
+                        // 3. Jika pencarian spesifik gagal, ambil kamera belakang pertama yang tidak punya kata "ultra"
+                        selectedCameraId = mainCamera ? mainCamera.id : 
+                                           backCameras.find(c => !c.label.toLowerCase().includes('ultra'))?.id || 
+                                           backCameras[0].id;
                         
-                        // Gunakan kamera utama yang ditemukan, atau fallback ke yang pertama
-                        cameraId = mainCamera ? mainCamera.id : rearCameras[0].id;
-                        console.log(`Using camera ID: ${cameraId}`);
+                        console.log("Kamera terpilih:", cameras.find(c => c.id === selectedCameraId).label);
                     }
                 }
 
-                const constraints = cameraId ? { deviceId: { exact: cameraId } } : { facingMode: "environment" };
+                const constraints = selectedCameraId ? 
+                    { deviceId: { exact: selectedCameraId } } : 
+                    { facingMode: "environment" };
 
+                // Eksekusi Start
                 scanner.start(constraints, config, (decodedText) => {
                     const now = Date.now();
                     if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
@@ -252,37 +264,18 @@
                     handleScanKasir(decodedText);
                     if(navigator.vibrate) navigator.vibrate(70);
                 }).catch(err => {
-                    if(err?.toString().includes("already")) return;
-                    console.warn("Gagal dengan kamera spesifik, mencoba default.", err);
-                    // Fallback ke default jika kamera spesifik gagal
+                    console.error("Gagal start kamera spesifik, mencoba default environment", err);
+                    // Fallback terakhir jika ID gagal
                     scanner.start({ facingMode: "environment" }, config, (decodedText) => {
-                        const now = Date.now();
-                        if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
-                        lastScanCode = decodedText;
-                        lastScanTime = now;
                         handleScanKasir(decodedText);
-                        if(navigator.vibrate) navigator.vibrate(70);
                     }).catch(e => {
-                        console.error("Gagal total membuka kamera.", e);
                         document.getElementById('camera-prompt').style.display = 'flex';
                     });
                 });
 
             }).catch(err => {
-                // Jika getCameras() gagal, langsung pakai metode lama
-                console.warn("Tidak bisa mendapatkan list kamera, menggunakan metode default.", err);
-                scanner.start({ facingMode: "environment" }, config, (decodedText) => {
-                    const now = Date.now();
-                    if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
-                    lastScanCode = decodedText;
-                    lastScanTime = now;
-                    handleScanKasir(decodedText);
-                    if(navigator.vibrate) navigator.vibrate(70);
-                }).catch(e => {
-                    if(e?.toString().includes("already")) return;
-                    console.error("Gagal membuka kamera (fallback).", e);
-                    document.getElementById('camera-prompt').style.display = 'flex';
-                });
+                console.error("Gagal mendapatkan daftar kamera", err);
+                document.getElementById('camera-prompt').style.display = 'flex';
             });
         }
 
