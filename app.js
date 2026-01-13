@@ -239,7 +239,6 @@ function startKamera() {
     
     const config = { 
         fps: 20, 
-        qrbox: { width: 250, height: 200 },
         // Menambahkan aspek rasio standar (4:3) untuk menghindari lensa ultra-wide
         aspectRatio: 1.333334
     };
@@ -352,7 +351,7 @@ function bukaScannerStok() {
         scannerStok = new Html5Qrcode("reader-stok");
     }
 
-    scannerStok.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, (decodedText) => {
+    scannerStok.start({ facingMode: "environment" }, { fps: 10 }, (decodedText) => {
         document.getElementById('f-sku').value = decodedText;
         if(navigator.vibrate) navigator.vibrate(70);
         tutupScannerStok();
@@ -521,7 +520,6 @@ async function startKameraRetail() {
     
     const config = { 
         fps: 20, 
-        qrbox: { width: 250, height: 200 },
         aspectRatio: 1.333334
     };
 
