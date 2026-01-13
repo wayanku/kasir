@@ -232,14 +232,16 @@ async function stopSemuaKamera() {
 
 // KAMERA ENGINE
 function startKamera() {
-    // document.getElementById('camera-prompt').style.display = 'none';
+    document.getElementById('camera-prompt').style.display = 'none';
     if (!scanner) {
         scanner = new Html5Qrcode("reader");
     }
     
     const config = { 
         fps: 20, 
-        qrbox: { width: 250, height: 250 }
+        qrbox: { width: 250, height: 200 },
+        // Menambahkan aspek rasio standar (4:3) untuk menghindari lensa ultra-wide
+        aspectRatio: 1.333334
     };
     
     const onCameraReady = () => {
@@ -287,7 +289,7 @@ function startKamera() {
                     const label = c.label.toLowerCase();
                     const isUltraWide = label.includes('ultra') || (label.includes('wide') && (label.includes('0.5') || label.includes('0.6')));
                     const isSpecial = label.includes('tele') || label.includes('macro') || label.includes('depth') || label.includes('virtual');
-                    return (label.includes(' 0') || label.includes('main') || label.includes('primary')) && !isUltraWide && !isSpecial;
+                    return (label.includes('0') || label.includes('main') || label.includes('primary')) && !isUltraWide && !isSpecial;
                 });
                 selectedCameraId = mainCamera ? mainCamera.id : (backCameras.find(c => !c.label.toLowerCase().includes('ultra'))?.id || backCameras[0].id);
             }
@@ -516,10 +518,49 @@ function switchKasirMode(mode) {
 async function startKameraRetail() {
     await stopSemuaKamera();
     if (!scanner) scanner = new Html5Qrcode("reader-retail");
-    scanner.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 250 } }, (decodedText) => {
-        handleScanKasir(decodedText);
-        if(navigator.vibrate) navigator.vibrate(70);
-    }).catch(err => console.log("Kamera retail error/stop", err));
+    
+    const config = { 
+        fps: 20, 
+        qrbox: { width: 250, height: 200 },
+        aspectRatio: 1.333334
+    };
+
+    Html5Qrcode.getCameras().then(cameras => {
+        let selectedCameraId = null;
+        if (cameras && cameras.length > 0) {
+            const backCameras = cameras.filter(c => c.label.toLowerCase().includes('back') || c.label.toLowerCase().includes('rear') || c.label.toLowerCase().includes('belakang'));
+            if (backCameras.length > 0) {
+                const mainCamera = backCameras.find(c => {
+                    const label = c.label.toLowerCase();
+                    const isUltraWide = label.includes('ultra') || (label.includes('wide') && (label.includes('0.5') || label.includes('0.6')));
+                    const isSpecial = label.includes('tele') || label.includes('macro') || label.includes('depth') || label.includes('virtual');
+                    return (label.includes('0') || label.includes('main') || label.includes('primary')) && !isUltraWide && !isSpecial;
+                });
+                selectedCameraId = mainCamera ? mainCamera.id : (backCameras.find(c => !c.label.toLowerCase().includes('ultra'))?.id || backCameras[0].id);
+            }
+        }
+
+        const constraints = selectedCameraId ? { deviceId: { exact: selectedCameraId } } : { facingMode: "environment" };
+
+        scanner.start(constraints, config, (decodedText) => {
+            const now = Date.now();
+            if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
+            lastScanCode = decodedText;
+            lastScanTime = now;
+            handleScanKasir(decodedText);
+            if(navigator.vibrate) navigator.vibrate(70);
+        }).catch(err => console.log("Kamera retail error/stop", err));
+    }).catch(err => {
+        console.error("Gagal akses kamera retail", err);
+        scanner.start({ facingMode: "environment" }, config, (decodedText) => {
+            const now = Date.now();
+            if (decodedText === lastScanCode && (now - lastScanTime < 2000)) return;
+            lastScanCode = decodedText;
+            lastScanTime = now;
+            handleScanKasir(decodedText);
+            if(navigator.vibrate) navigator.vibrate(70);
+        });
+    });
 }
 
 function toggleSearch() {
@@ -656,6 +697,7 @@ function handleScanKasir(sku) {
         document.getElementById('txt-unknown-sku').innerText = sku;
         document.getElementById('modal-unknown').classList.remove('hidden');
         document.getElementById('modal-unknown').classList.add('flex');
+        if(scanner) try { scanner.pause(); } catch(e){}
     } else {
         ucapkan(produk.nama);
         if (kasirMode === 'retail') {
@@ -737,6 +779,7 @@ function tambahKeCartCore(produk) {
 function tutupModalUnknown() {
     document.getElementById('modal-unknown').classList.add('hidden');
     document.getElementById('modal-unknown').classList.remove('flex');
+    if(scanner) try { scanner.resume(); } catch(e){}
 }
 
 function redirectKeStok() {
