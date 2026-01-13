@@ -9,9 +9,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Library Kamera & App -->
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; @apply bg-slate-50 text-slate-800; -webkit-tap-highlight-color: transparent; padding-bottom: 120px; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; @apply bg-slate-50 text-slate-800; -webkit-tap-highlight-color: transparent; }
         .page { display: none; }
         .page.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -80,19 +81,20 @@
     <div id="toast-container"></div>
 
     <!-- HEADER -->
-    <header class="px-6 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-40 shadow-sm flex justify-between items-center border-b border-slate-100">
+    <header class="px-6 py-4 bg-white/90 backdrop-blur-md sticky top-0 z-40 shadow-sm flex justify-between items-center border-b border-slate-100 lg:ml-64 transition-all duration-300">
         <div>
+            <div id="user-badge" class="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full inline-block mb-1 hidden">OWNER</div>
             <h1 class="text-xl font-bold text-slate-800" id="header-nama-toko">Kasir<span class="text-teal-600">Pro</span></h1>
             <div class="flex items-center gap-2 mt-1">
                 <div id="network-status" class="w-2 h-2 rounded-full bg-gray-300" title="Mengecek status jaringan..."></div>
                 <p id="clock" class="text-[11px] font-semibold text-slate-400"></p>
             </div>
         </div>
-        <div class="flex gap-2">
+        <div class="flex items-center gap-2">
             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-full text-slate-600 hover:bg-teal-50 hover:text-teal-600 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
-            <button onclick="bukaHalaman('pengaturan')" class="p-2.5 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 transition">
+            <button id="btn-settings-header" onclick="bukaHalaman('pengaturan')" class="p-2.5 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             </button>
         </div>
@@ -107,19 +109,114 @@
         <div id="res-search" class="space-y-4"></div>
     </div>
 
-    <main class="p-4 max-w-4xl mx-auto">
+    <!-- SIDEBAR NAVIGATION (DESKTOP/TABLET) -->
+    <aside class="fixed top-0 left-0 w-64 h-full bg-white border-r border-slate-200 z-50 hidden lg:flex flex-col shadow-xl">
+        <div class="p-6 border-b border-slate-100 flex items-center gap-3">
+            <img src="https://cdn-icons-png.flaticon.com/512/3050/3050225.png" class="w-8 h-8">
+            <h2 class="font-bold text-xl text-slate-800">Kasir<span class="text-teal-600">Pro</span></h2>
+        </div>
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <button onclick="bukaHalaman('dashboard')" class="nav-item-desktop w-full text-left px-4 py-3 rounded-xl font-bold text-slate-600 hover:bg-teal-50 hover:text-teal-600 transition flex items-center gap-3" id="desk-nav-dashboard">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg> Dashboard
+            </button>
+            <button onclick="bukaHalaman('kasir', 'retail')" class="nav-item-desktop w-full text-left px-4 py-3 rounded-xl font-bold text-slate-600 hover:bg-teal-50 hover:text-teal-600 transition flex items-center gap-3" id="desk-nav-kasir">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg> Kasir
+            </button>
+            <button onclick="bukaHalaman('stok')" class="nav-item-desktop w-full text-left px-4 py-3 rounded-xl font-bold text-slate-600 hover:bg-teal-50 hover:text-teal-600 transition flex items-center gap-3" id="desk-nav-stok">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg> Stok Produk
+            </button>
+            <button onclick="bukaHalaman('pelanggan')" class="nav-item-desktop w-full text-left px-4 py-3 rounded-xl font-bold text-slate-600 hover:bg-teal-50 hover:text-teal-600 transition flex items-center gap-3" id="desk-nav-pelanggan">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg> Pelanggan
+            </button>
+            <button onclick="bukaHalaman('laporan')" class="nav-item-desktop w-full text-left px-4 py-3 rounded-xl font-bold text-slate-600 hover:bg-teal-50 hover:text-teal-600 transition flex items-center gap-3" id="desk-nav-laporan">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Laporan
+            </button>
+            <div class="pt-4 mt-4 border-t border-slate-100">
+                <button onclick="bukaHalaman('pengaturan')" class="nav-item-desktop w-full text-left px-4 py-3 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition flex items-center gap-3" id="desk-nav-pengaturan">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Pengaturan
+                </button>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-100 text-xs text-slate-400 text-center">
+            KasirPintar Pro v3.1
+        </div>
+    </aside>
+
+    <main class="p-4 max-w-7xl mx-auto lg:ml-64 pb-24 lg:pb-10 transition-all duration-300">
         
         <!-- HALAMAN DASHBOARD (NEW) -->
         <div id="p-dashboard" class="page active space-y-6">
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-gradient-to-br from-teal-500 to-cyan-500 rounded-2xl p-5 text-white shadow-lg shadow-cyan-200">
-                    <p class="text-sm font-medium opacity-80 mb-1">Omzet Hari Ini</p>
+            <!-- SUPER APP MENU MODULES -->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+                <!-- Modul Kasir -->
+                <button onclick="bukaHalaman('kasir', 'retail')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center gap-3 hover:bg-teal-50 transition active:scale-95">
+                    <div class="w-12 h-12 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 17h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                    </div>
+                    <span class="font-bold text-slate-700 text-sm">Kasir Retail</span>
+                </button>
+                <!-- Modul Resto -->
+                <button onclick="bukaHalaman('kasir', 'resto')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center gap-3 hover:bg-orange-50 transition active:scale-95">
+                <button onclick="bukaHalaman('absensi')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center gap-3 hover:bg-blue-50 transition active:scale-95">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    </div>
+                    <span class="font-bold text-slate-700 text-sm">Absensi Wajah</span>
+                </button>
+                <!-- Modul Laporan -->
+                <button onclick="bukaHalaman('laporan')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center gap-3 hover:bg-purple-50 transition active:scale-95">
+                    <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    </div>
+                    <span class="font-bold text-slate-700 text-sm">Laporan</span>
+                </button>
+                <!-- Modul Barcode -->
+                <button onclick="bukaHalaman('barcode')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center gap-3 hover:bg-indigo-50 transition active:scale-95">
+                    <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 17h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                    </div>
+                    <span class="font-bold text-slate-700 text-sm">Buat Barcode</span>
+                </button>
+                <!-- Modul Pengeluaran (Financial) -->
+                <button onclick="bukaHalaman('pengeluaran')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center gap-3 hover:bg-rose-50 transition active:scale-95">
+                    <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                    </div>
+                    <span class="font-bold text-slate-700 text-sm">Pengeluaran</span>
+                </button>
+                <!-- Modul Kasbon (Hutang) -->
+                <button onclick="bukaHalaman('hutang')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center gap-3 hover:bg-amber-50 transition active:scale-95">
+                    <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <span class="font-bold text-slate-700 text-sm">Buku Kasbon</span>
+                </button>
+                <!-- Modul Denah Meja (Resto) -->
+                <button onclick="bukaHalaman('meja')" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center gap-3 hover:bg-lime-50 transition active:scale-95">
+                    <div class="w-12 h-12 bg-lime-100 text-lime-600 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m8-2a2 2 0 100-4 2 2 0 000 4z"/></svg>
+                    </div>
+                    <span class="font-bold text-slate-700 text-sm">Denah Meja</span>
+                </button>
+            </div>
+
+            <!-- WIDGETS -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white shadow-lg">
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="text-sm font-medium opacity-60">Target Omzet Hari Ini</p>
+                        <button onclick="setTargetOmzet()" class="text-xs bg-white/10 px-2 py-1 rounded-md hover:bg-white/20">Set Target</button>
+                    </div>
                     <h2 id="db-omzet-hari-ini" class="text-3xl font-bold">Rp 0</h2>
+                    <div class="w-full bg-white/20 rounded-full h-2.5 mt-4">
+                        <div id="db-target-progress" class="bg-green-400 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs mt-2 opacity-60">
+                        <span id="db-target-percentage">0%</span>
+                        <span id="db-target-value">dari Rp 0</span>
+                    </div>
                 </div>
-                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-                    <p class="text-sm font-medium text-slate-500 mb-1">Transaksi Hari Ini</p>
-                    <h2 id="db-transaksi-hari-ini" class="text-3xl font-bold text-slate-800">0</h2>
-                </div>
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"><p class="text-sm font-medium text-slate-500 mb-1">Total Transaksi</p><h2 id="db-transaksi-hari-ini" class="text-2xl font-bold text-slate-800">0</h2></div>
             </div>
 
             <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
@@ -138,69 +235,200 @@
         </div>
 
         <!-- HALAMAN KASIR -->
-        <div id="p-kasir" class="page space-y-6">
-            <!-- Scan Window -->
-            <div class="scan-container shadow-xl shadow-slate-200">
-                <div id="reader"></div>
-                <div class="laser"></div>
+        <div id="p-kasir" class="page">
+            <!-- HEADER MODE SWITCHER -->
+            <div class="flex bg-slate-200 p-1 rounded-xl mb-4">
+                <button onclick="switchKasirMode('retail')" id="btn-mode-retail" class="flex-1 py-2 text-sm font-bold rounded-lg transition-all">Retail (Scan)</button>
+                <button onclick="switchKasirMode('resto')" id="btn-mode-resto" class="flex-1 py-2 text-sm font-bold rounded-lg transition-all">Resto (Menu)</button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Kolom Kiri: Scanner / Menu -->
+                <div class="space-y-6">
+                    <!-- === VIEW RETAIL (SCANNER EMBEDDED) === -->
+                    <div id="view-retail" class="hidden space-y-4">
+                        <!-- Scanner Area -->
+                        <div class="bg-black rounded-2xl overflow-hidden relative shadow-lg h-64">
+                            <div id="reader-retail" class="w-full h-full"></div>
+                            <div class="absolute inset-0 border-2 border-teal-500/50 pointer-events-none"></div>
+                            <div class="absolute top-0 left-0 w-full h-1 bg-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.8)] animate-[moveLaser_2s_infinite]"></div>
+                            <button onclick="toggleFlash()" class="absolute bottom-4 right-4 bg-white/20 backdrop-blur p-2 rounded-full text-white"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></button>
+                        </div>
+                        <div class="text-center text-xs text-slate-400">Arahkan kamera ke barcode untuk scan otomatis</div>
+                    </div>
+
+                    <!-- === VIEW RESTO (VISUAL MENU) === -->
+                    <div id="view-resto" class="hidden bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="font-bold text-slate-800">Menu Katalog</h2>
+                            <div id="info-meja-aktif" class="hidden bg-lime-100 text-lime-700 px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-2">
+                                <span>Meja 1</span>
+                                <button onclick="tutupMejaAktif()" class="text-lime-800 hover:text-red-500">✕</button>
+                            </div>
+                        </div>
+                        <div id="menu-kategori-tabs" class="flex gap-2 overflow-x-auto no-scrollbar mb-4 border-b pb-2">
+                            <!-- Kategori Tabs dirender di sini -->
+                        </div>
+                        <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto">
+                            <!-- Menu Items dirender di sini -->
+                        </div>
+                    </div>
+
+                    <!-- Temp Scan List (Barang Scan Sementara) -->
+                    <div id="temp-scan-area" class="hidden bg-teal-50 rounded-xl p-4 border border-teal-100 shadow-inner">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-bold text-teal-900 text-sm">Hasil Scan</h3>
+                            <button onclick="batalTempSemua()" class="text-[10px] text-red-500 font-bold bg-white px-2 py-1 rounded-lg border border-red-100">BATAL SEMUA</button>
+                        </div>
+                        <div id="temp-list" class="space-y-2 mb-3 max-h-[150px] overflow-y-auto"></div>
+                        <button onclick="masukKeranjang()" class="w-full bg-teal-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-teal-200 active:scale-95 transition">MASUKKAN KE KERANJANG</button>
+                    </div>
+                </div>
+
+                <!-- Kolom Kanan: Keranjang -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 h-fit lg:sticky top-24">
+                    <div class="flex justify-between mb-4">
+                        <h2 class="font-bold text-slate-800 flex items-center gap-2"><svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg> Keranjang</h2>
+                        <div class="flex gap-3 items-center">
+                            <button onclick="holdCart()" id="btn-simpan-cart" class="text-xs font-bold text-orange-500 hover:text-orange-600 bg-orange-50 px-2 py-1 rounded-lg">Simpan</button>
+                            <button onclick="bukaModalPending()" class="text-xs font-bold text-blue-500 hover:text-blue-600 bg-blue-50 px-2 py-1 rounded-lg relative">Pending <span id="badge-pending" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center shadow-sm">0</span></button>
+                            <button onclick="bukaModalSplitBill()" class="text-xs font-bold text-purple-500 hover:text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">Split Bill</button>
+                            <button onclick="resetCart()" class="text-xs text-red-500 hover:text-red-600">Reset</button>
+                        </div>
+                    </div>
+                    <div id="cart-list" class="space-y-3 max-h-[300px] lg:max-h-[50vh] overflow-y-auto mb-6 no-scrollbar">
+                        <div class="text-center py-10 text-gray-300 text-sm">Belum ada item</div>
+                    </div>
+                    <div class="border-t border-slate-200 pt-4 space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500 font-medium">Total Bayar</span>
+                            <span id="total-harga" class="text-2xl font-bold text-teal-600">Rp 0</span>
+                        </div>
+                        <button onclick="bayarSekarang()" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-teal-200 active:scale-95 transition transform">BAYAR SEKARANG</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HALAMAN ABSENSI (NEW) -->
+        <div id="p-absensi" class="page space-y-6">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-center">
+                <h2 class="font-bold text-xl text-slate-800 mb-2">Absensi Wajah</h2>
+                <p class="text-sm text-slate-400 mb-6">Silakan foto selfie untuk melakukan absensi.</p>
                 
-                <!-- CONTROLS KAMERA (ZOOM & FLASH) -->
-                <div id="cam-controls" class="absolute bottom-5 left-0 right-0 px-6 z-30 hidden flex flex-col gap-3">
-                    <!-- Flash Button -->
-                    <button id="btn-flash" onclick="toggleFlash()" class="self-end bg-black/50 backdrop-blur-md text-white p-3 rounded-full mb-2 hidden">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-width="2" stroke-linejoin="round"/></svg>
-                    </button>
-                    
-                    <!-- Zoom Slider -->
-                    <div id="zoom-box" class="bg-black/50 backdrop-blur-md p-2 rounded-full flex items-center gap-3 hidden w-full">
-                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" stroke-width="2"/></svg>
-                        <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1" class="w-full h-1.5 bg-gray-200/50 rounded-lg appearance-none cursor-pointer range-sm">
-                        <span id="zoom-value" class="text-white text-[10px] font-bold w-8">1x</span>
-                    </div>
+                <div class="relative w-64 h-64 mx-auto bg-slate-100 rounded-full overflow-hidden border-4 border-teal-500 shadow-xl mb-6">
+                    <video id="video-absensi" class="w-full h-full object-cover" autoplay playsinline></video>
+                    <canvas id="canvas-absensi" class="hidden"></canvas>
                 </div>
 
-                <!-- Tombol Jika Kamera Tidak Muncul -->
-                <div id="camera-prompt" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/90 text-white p-6 text-center z-20">
-                    <svg class="w-12 h-12 mb-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"/></svg>
-                    <p class="mb-4 text-sm">Kamera memerlukan izin akses</p>
-                    <button onclick="startKamera()" class="bg-teal-600 px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-teal-700 transition">Aktifkan Kamera</button>
-                    <p class="mt-2 text-[10px] text-gray-400">Pastikan menggunakan HTTPS</p>
-                </div>
+                <button onclick="ambilAbsensi()" class="bg-teal-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-teal-700 transition active:scale-95 flex items-center gap-2 mx-auto">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Ambil Foto & Absen
+                </button>
             </div>
-
-            <!-- Temp Scan List (Barang Scan Sementara) -->
-            <div id="temp-scan-area" class="hidden bg-teal-50 rounded-xl p-4 border border-teal-100 shadow-inner">
-                <div class="flex justify-between items-center mb-3">
-                    <h3 class="font-bold text-teal-900 text-sm">Hasil Scan</h3>
-                    <button onclick="batalTempSemua()" class="text-[10px] text-red-500 font-bold bg-white px-2 py-1 rounded-lg border border-red-100">BATAL SEMUA</button>
-                </div>
-                <div id="temp-list" class="space-y-2 mb-3 max-h-[150px] overflow-y-auto"></div>
-                <button onclick="masukKeranjang()" class="w-full bg-teal-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-teal-200 active:scale-95 transition">MASUKKAN KE KERANJANG</button>
+            <div id="riwayat-absensi" class="space-y-3">
+                <!-- Log Absensi -->
             </div>
+        </div>
 
-            <!-- Keranjang -->
+        <!-- HALAMAN BARCODE GENERATOR (NEW) -->
+        <div id="p-barcode" class="page space-y-6">
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-                <div class="flex justify-between mb-4">
-                    <h2 class="font-bold text-slate-800 flex items-center gap-2"><svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" stroke-width="2"/></svg> Keranjang</h2>
-                    <button onclick="resetCart()" class="text-xs text-red-500">Kosongkan</button>
-                </div>
-                <div id="cart-list" class="space-y-3 max-h-[300px] overflow-y-auto mb-6 no-scrollbar">
-                    <div class="text-center py-10 text-gray-300 text-sm">Belum ada item</div>
-                </div>
-                <div class="border-t border-slate-200 pt-4 space-y-4">
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-500 font-medium">Total Bayar</span>
-                        <span id="total-harga" class="text-2xl font-bold text-teal-600">Rp 0</span>
+                <h3 class="font-bold text-xl text-slate-800 mb-4">Generator Barcode</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 block mb-1">Kode / SKU</label>
+                        <input type="text" id="bc-code" onkeyup="generateBarcode()" placeholder="Contoh: 12345678" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
-                    <button onclick="bayarSekarang()" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-teal-200 active:scale-95 transition transform">BAYAR SEKARANG</button>
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 block mb-1">Label (Opsional)</label>
+                        <input type="text" id="bc-label" onkeyup="generateBarcode()" placeholder="Nama Produk" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    
+                    <div class="flex justify-center p-6 bg-white border-2 border-dashed border-slate-200 rounded-xl overflow-hidden">
+                        <svg id="barcode-preview"></svg>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="downloadBarcode()" class="py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700">Download PNG</button>
+                        <button onclick="printBarcode()" class="py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200">Print</button>
+                    </div>
                 </div>
+            </div>
+            
+            <!-- List Produk untuk Quick Generate -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <h3 class="font-bold text-slate-800 mb-4">Pilih dari Stok</h3>
+                <div id="list-produk-barcode" class="space-y-2 max-h-60 overflow-y-auto no-scrollbar">
+                    <!-- Render list here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- HALAMAN PENGELUARAN (NEW) -->
+        <div id="p-pengeluaran" class="page space-y-6">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <h3 class="font-bold text-xl text-slate-800 mb-4">Catat Pengeluaran Operasional</h3>
+                <div class="space-y-3">
+                    <input type="text" id="out-nama" placeholder="Nama Pengeluaran (Contoh: Listrik, Gaji)" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-500">
+                    <input type="number" inputmode="numeric" id="out-nominal" placeholder="Nominal (Rp)" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-500">
+                    <select id="out-kategori" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-500">
+                        <option value="Operasional">Operasional</option>
+                        <option value="Gaji">Gaji Karyawan</option>
+                        <option value="Stok">Belanja Stok</option>
+                        <option value="Lainnya">Lainnya</option>
+                    </select>
+                    <button onclick="tambahPengeluaran()" class="w-full py-3 bg-rose-600 text-white rounded-xl font-bold shadow-lg hover:bg-rose-700 transition">Simpan Pengeluaran</button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <h3 class="font-bold text-slate-800 mb-4">Riwayat Pengeluaran</h3>
+                <div id="list-pengeluaran" class="space-y-3 max-h-[400px] overflow-y-auto no-scrollbar">
+                    <!-- List rendered here -->
+                </div>
+                <div id="empty-pengeluaran" class="text-center py-10 text-gray-400 hidden">Belum ada data pengeluaran</div>
+            </div>
+        </div>
+
+        <!-- HALAMAN BUKU KASBON (NEW) -->
+        <div id="p-hutang" class="page space-y-6">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <h3 class="font-bold text-xl text-slate-800 mb-2">Buku Kasbon</h3>
+                <p class="text-sm text-slate-400 mb-4">Daftar pelanggan yang memiliki piutang.</p>
+                
+                <div id="list-hutang" class="space-y-3">
+                    <!-- List Hutang -->
+                </div>
+                <div id="empty-hutang" class="text-center py-10 text-gray-400 hidden">Tidak ada data hutang.</div>
+            </div>
+        </div>
+
+        <!-- HALAMAN DENAH MEJA (NEW) -->
+        <div id="p-meja" class="page space-y-6">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-xl text-slate-800">Denah Meja</h3>
+                <button onclick="tambahMeja()" class="bg-lime-100 text-lime-700 px-3 py-1 rounded-lg text-xs font-bold">+ Meja</button>
+            </div>
+            
+            <div id="grid-meja" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
+                <!-- Grid Meja -->
+            </div>
+            
+            <div class="bg-white p-4 rounded-xl border border-slate-200 text-xs text-slate-500 space-y-1">
+                <p><span class="inline-block w-3 h-3 bg-slate-100 border border-slate-300 rounded-full mr-1"></span> Kosong</p>
+                <p><span class="inline-block w-3 h-3 bg-lime-500 border border-lime-600 rounded-full mr-1"></span> Terisi (Ada Pesanan)</p>
             </div>
         </div>
 
         <!-- HALAMAN STOK -->
         <div id="p-stok" class="page space-y-6">
-            <!-- Filter Kategori -->
-            <div class="bg-white p-2 rounded-xl flex items-center gap-2 overflow-x-auto no-scrollbar">
+            <!-- Filter & History -->
+            <div class="flex gap-2">
+                <button onclick="bukaModalRiwayatStok()" class="bg-white p-3 rounded-xl text-slate-600 shadow-sm border border-slate-100 hover:bg-slate-50">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </button>
                 <select id="kategori-filter" onchange="renderStok()" class="bg-slate-100 text-slate-700 p-3 rounded-lg border-none outline-none font-bold text-sm appearance-none">
                     <!-- Options will be populated by JS -->
                 </select>
@@ -246,15 +474,18 @@
                     <label for="tgl-selesai" class="text-xs font-semibold text-slate-500">Tanggal Selesai</label>
                     <input type="date" id="tgl-selesai" class="w-full mt-1 p-2 bg-slate-100 rounded-lg border border-slate-200">
                 </div>
-                <button onclick="renderLaporan()" class="bg-teal-600 text-white rounded-lg py-2.5 font-bold h-fit">Terapkan</button>
+                <div class="flex gap-2">
+                    <button onclick="renderLaporan()" class="flex-1 bg-teal-600 text-white rounded-lg py-2.5 font-bold h-fit">Terapkan</button>
+                    <button onclick="setLaporanHariIni()" class="bg-slate-100 text-slate-600 px-3 rounded-lg font-bold text-xs">Hari Ini</button>
+                </div>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"><p class="text-sm font-medium text-slate-500 mb-1">Total Omzet</p><h2 id="lpr-total-omzet" class="text-2xl font-bold text-teal-600">Rp 0</h2></div>
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"><p class="text-sm font-medium text-slate-500 mb-1">Total Transaksi</p><h2 id="lpr-total-transaksi" class="text-2xl font-bold text-slate-800">0</h2></div>
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"><p class="text-sm font-medium text-slate-500 mb-1">Produk Terjual</p><h2 id="lpr-produk-terjual" class="text-2xl font-bold text-slate-800">0</h2></div>
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"><p class="text-sm font-medium text-slate-500 mb-1">Rata-rata/Trx</p><h2 id="lpr-avg-trx" class="text-2xl font-bold text-slate-800">Rp 0</h2></div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"><p class="text-sm font-medium text-slate-500 mb-1">Total Modal (HPP)</p><h2 id="lpr-total-modal" class="text-2xl font-bold text-orange-500">Rp 0</h2></div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"><p class="text-sm font-medium text-slate-500 mb-1">Total Pengeluaran</p><h2 id="lpr-total-pengeluaran" class="text-2xl font-bold text-rose-500">Rp 0</h2></div>
+            <div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 text-white shadow-lg"><p class="text-sm font-medium opacity-80 mb-1">Laba Bersih</p><h2 id="lpr-laba-bersih" class="text-2xl font-bold">Rp 0</h2></div>
         </div>
 
         <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
@@ -265,7 +496,7 @@
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold text-gray-800">Riwayat Transaksi</h3>
-                <button onclick="exportLaporanToCSV()" class="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-100 transition">Export CSV</button>
+                <button onclick="shareLaporanWA()" class="bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-green-600 transition shadow-lg shadow-green-200 flex items-center gap-2"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg> Setor Laporan (WA)</button>
             </div>
             <div id="list-riwayat" class="space-y-4 max-h-[400px] overflow-y-auto no-scrollbar">
                 <!-- List Transaksi -->
@@ -277,6 +508,37 @@
     <div id="p-pengaturan" class="page p-4 max-w-4xl mx-auto space-y-6">
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
             <h3 class="font-bold text-gray-800">Pengaturan</h3>
+
+            <!-- Voucher Management -->
+            <div class="p-4 bg-sky-50 rounded-xl space-y-3 border border-sky-100">
+                <h4 class="font-bold text-sm text-sky-900">Manajemen Voucher</h4>
+                <div class="flex gap-2">
+                    <input type="text" id="voucher-code" placeholder="Kode Voucher (e.g. ULTAH)" class="flex-1 p-2 rounded-lg border border-sky-200 text-sm">
+                    <input type="number" id="voucher-value" placeholder="Nominal (Rp)" class="w-28 p-2 rounded-lg border border-sky-200 text-sm">
+                    <button onclick="tambahVoucher()" class="bg-sky-600 text-white px-3 rounded-lg text-xs font-bold hover:bg-sky-700">Tambah</button>
+                </div>
+                <div id="list-vouchers" class="space-y-2 mt-2">
+                    <!-- List Vouchers -->
+                </div>
+            </div>
+
+            <!-- Member Level Management -->
+            <div class="p-4 bg-yellow-50 rounded-xl space-y-3 border border-yellow-100">
+                <h4 class="font-bold text-sm text-yellow-900">Pengaturan Level Member</h4>
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                        <label class="w-20 text-xs font-bold text-yellow-800">Silver</label>
+                        <input type="number" id="level-silver-pts" class="w-24 p-2 rounded-lg border border-yellow-200 text-sm" placeholder="Min. Poin">
+                        <input type="number" id="level-silver-disc" class="flex-1 p-2 rounded-lg border border-yellow-200 text-sm" placeholder="Diskon (%)">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="w-20 text-xs font-bold text-yellow-800">Gold</label>
+                        <input type="number" id="level-gold-pts" class="w-24 p-2 rounded-lg border border-yellow-200 text-sm" placeholder="Min. Poin">
+                        <input type="number" id="level-gold-disc" class="flex-1 p-2 rounded-lg border border-yellow-200 text-sm" placeholder="Diskon (%)">
+                    </div>
+                </div>
+                <button onclick="simpanLevelMember()" class="bg-yellow-500 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-yellow-600">Simpan Level</button>
+            </div>
 
             <!-- Profil Toko -->
             <div class="p-4 bg-slate-50 rounded-xl space-y-3">
@@ -296,6 +558,10 @@
                 <div>
                     <label class="text-xs text-gray-500">Pesan Footer Struk</label>
                     <input type="text" id="set-footer-struk" class="w-full p-2 rounded-lg border border-slate-200 text-sm" placeholder="Terima Kasih...">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Info Pembayaran Digital (QRIS/Rekening)</label>
+                    <textarea id="set-info-bayar" class="w-full p-2 rounded-lg border border-slate-200 text-sm h-20" placeholder="BCA: 123456&#10;DANA: 0812..."></textarea>
                 </div>
                 <button onclick="simpanProfilToko()" class="w-full bg-teal-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-teal-700">Simpan Profil</button>
             </div>
@@ -321,7 +587,22 @@
                     <div class="font-bold text-sm text-gray-700">Pajak / PPN (%)</div>
                     <div class="text-xs text-gray-400">Otomatis ditambahkan ke total</div>
                 </div>
-                <input type="number" id="setting-pajak" onchange="simpanSettingPajak(this.value)" class="w-20 p-2 bg-white border border-slate-200 rounded-lg text-center font-bold outline-none focus:ring-2 focus:ring-teal-500" placeholder="0">
+                <input type="number" inputmode="numeric" id="setting-pajak" onchange="simpanSettingPajak(this.value)" class="w-20 p-2 bg-white border border-slate-200 rounded-lg text-center font-bold outline-none focus:ring-2 focus:ring-teal-500" placeholder="0">
+            </div>
+
+            <!-- Happy Hour Config -->
+            <div class="p-4 bg-purple-50 rounded-xl space-y-3 border border-purple-100">
+                <h4 class="font-bold text-sm text-purple-900">Diskon Otomatis (Happy Hour)</h4>
+                <div class="flex gap-2 items-center">
+                    <input type="time" id="hh-start" class="p-2 rounded-lg border border-purple-200 text-sm">
+                    <span class="text-xs text-purple-400">s/d</span>
+                    <input type="time" id="hh-end" class="p-2 rounded-lg border border-purple-200 text-sm">
+                </div>
+                <div class="flex gap-2 items-center">
+                    <span class="text-xs font-bold text-purple-700">Diskon (%)</span>
+                    <input type="number" id="hh-percent" class="w-20 p-2 rounded-lg border border-purple-200 text-sm" placeholder="0">
+                </div>
+                <button onclick="simpanHappyHour()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-700">Simpan Setting</button>
             </div>
 
             <div class="p-4 bg-slate-50 rounded-xl flex justify-between items-center">
@@ -370,7 +651,19 @@
                 <h3 class="font-bold text-xl text-gray-800">Pembayaran</h3>
                 <button onclick="tutupModalBayar()" class="text-gray-400 hover:text-gray-800">✕</button>
             </div>
+
+            <div class="mb-4">
+                <label class="text-xs font-bold text-gray-500 ml-1 mb-1 block">KODE VOUCHER</label>
+                <input type="text" id="input-voucher" onkeyup="hitungTotalBayar()" class="w-full p-3 bg-slate-100 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-teal-500 transition-all uppercase" placeholder="Masukkan kode voucher...">
+            </div>
             
+            <!-- Metode Pembayaran Tabs -->
+            <div class="flex p-1 bg-slate-100 rounded-xl mb-4">
+                <button onclick="setMetodeBayar('tunai')" id="btn-bayar-tunai" class="flex-1 py-2 text-sm font-bold rounded-lg shadow-sm bg-white text-teal-600 transition-all">Tunai</button>
+                <button onclick="setMetodeBayar('nontunai')" id="btn-bayar-nontunai" class="flex-1 py-2 text-sm font-bold rounded-lg text-gray-500 hover:text-gray-700 transition-all">Transfer / QRIS</button>
+                <button onclick="setMetodeBayar('hutang')" id="btn-bayar-hutang" class="flex-1 py-2 text-sm font-bold rounded-lg text-gray-500 hover:text-gray-700 transition-all">Hutang</button>
+            </div>
+
             <div class="mb-4">
                 <label class="text-xs font-bold text-gray-500 ml-1 mb-1 block">PELANGGAN (Opsional)</label>
                 <select id="pilih-pelanggan" class="w-full p-3 bg-slate-100 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-teal-500">
@@ -385,7 +678,7 @@
 
             <div class="mb-4">
                 <label class="text-xs font-bold text-gray-500 ml-1 mb-1 block">DISKON TAMBAHAN (Rp)</label>
-                <input type="number" id="input-diskon-global" onkeyup="hitungTotalBayar()" class="w-full p-3 bg-slate-100 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-teal-500 transition-all" placeholder="0">
+                <input type="number" inputmode="numeric" id="input-diskon-global" onkeyup="hitungTotalBayar()" class="w-full p-3 bg-slate-100 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-teal-500 transition-all" placeholder="0">
             </div>
 
             <div class="space-y-3 mb-6">
@@ -399,10 +692,16 @@
                 </div>
             </div>
 
+            <!-- Info Pembayaran Digital (Hidden by default) -->
+            <div id="box-info-bayar" class="hidden bg-blue-50 p-3 rounded-xl mb-4 border border-blue-100">
+                <p class="text-[10px] font-bold text-blue-500 mb-1">INFO PEMBAYARAN:</p>
+                <p id="text-info-bayar" class="text-xs text-slate-700 whitespace-pre-line font-mono"></p>
+            </div>
+
             <div class="space-y-4 mb-8">
                 <div>
-                    <label class="text-xs font-bold text-gray-500 ml-1 mb-1 block">UANG DITERIMA (F8)</label>
-                    <input type="number" id="input-uang" onkeyup="hitungKembalian()" class="w-full p-4 bg-slate-100 rounded-xl text-xl font-bold outline-none focus:ring-2 focus:ring-teal-500 transition-all" placeholder="0">
+                    <label id="lbl-uang-diterima" class="text-xs font-bold text-gray-500 ml-1 mb-1 block">UANG DITERIMA (F8)</label>
+                    <input type="number" inputmode="numeric" id="input-uang" onkeyup="hitungKembalian()" class="w-full p-4 bg-slate-100 rounded-xl text-xl font-bold outline-none focus:ring-2 focus:ring-teal-500 transition-all" placeholder="0">
                 </div>
                 <div class="flex justify-between items-center px-2 py-2 border-t border-dashed">
                     <span class="text-sm font-bold text-gray-500">Kembalian</span>
@@ -415,6 +714,47 @@
                 <button onclick="prosesPembayaranFinal()" class="py-4 bg-teal-600 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-700 transition active:scale-95">Selesai (Enter)</button>
             </div>
         </div>
+    </div>
+
+    <!-- MODAL SPLIT BILL -->
+    <div id="modal-split-bill" class="fixed inset-0 bg-black/60 z-[110] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl animate-fadeIn max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg text-gray-800">Split Bill (Bayar Terpisah)</h3>
+                <button onclick="tutupModalSplitBill()" class="text-gray-400 hover:text-gray-800">✕</button>
+            </div>
+            <p class="text-xs text-slate-500 mb-2">Pilih item yang ingin dibayar sekarang:</p>
+            <div id="list-split-bill" class="space-y-2 overflow-y-auto flex-1 mb-4">
+                <!-- List Item Split -->
+            </div>
+            <div class="flex justify-between items-center font-bold text-lg text-teal-600 mb-4 border-t pt-2"><span>Total Split:</span> <span id="total-split">Rp 0</span></div>
+            <button onclick="prosesSplitBill()" class="w-full py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg hover:bg-teal-700">Bayar Item Terpilih</button>
+        </div>
+    </div>
+
+    <!-- [BARU] MODAL SCANNER -->
+    <div id="modal-scanner" class="fixed inset-0 bg-black/80 z-[150] hidden flex flex-col items-center justify-center p-4 backdrop-blur-sm">
+        <button onclick="tutupModalScanner()" class="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 z-20">✕</button>
+        <div class="w-full max-w-lg relative">
+            <div class="scan-container shadow-xl shadow-slate-200">
+                <div id="reader"></div>
+                <div class="laser"></div>
+            </div>
+            <!-- CONTROLS KAMERA (ZOOM & FLASH) -->
+            <div id="cam-controls" class="mt-4 z-30 hidden flex-col gap-3">
+                <!-- Flash Button -->
+                <button id="btn-flash" onclick="toggleFlash()" class="self-end bg-black/50 backdrop-blur-md text-white p-3 rounded-full mb-2 hidden">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-width="2" stroke-linejoin="round"/></svg>
+                </button>
+                <!-- Zoom Slider -->
+                <div id="zoom-box" class="bg-black/50 backdrop-blur-md p-2 rounded-full flex items-center gap-3 hidden w-full">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" stroke-width="2"/></svg>
+                    <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1" class="w-full h-1.5 bg-gray-200/50 rounded-lg appearance-none cursor-pointer range-sm">
+                    <span id="zoom-value" class="text-white text-[10px] font-bold w-8">1x</span>
+                </div>
+            </div>
+        </div>
+        <p class="text-white/70 text-sm mt-4">Arahkan kamera ke barcode produk</p>
     </div>
 
     <!-- MODAL TAMBAH PRODUK -->
@@ -432,6 +772,16 @@
             </div>
 
             <div class="space-y-3">
+                <!-- [BARU] Image Uploader -->
+                <div class="flex flex-col items-center">
+                    <label for="f-gambar" class="cursor-pointer">
+                        <img id="f-gambar-preview" src="https://via.placeholder.com/150x150.png?text=Pilih+Gambar" class="w-32 h-32 object-cover rounded-xl bg-slate-100 border-2 border-dashed hover:border-teal-500 transition">
+                    </label>
+                    <input type="file" id="f-gambar" class="hidden" accept="image/*" onchange="handleImageUpload(event)">
+                    <button onclick="document.getElementById('f-gambar-preview').src='https://via.placeholder.com/150x150.png?text=Pilih+Gambar'; tempImageData = null;" class="text-xs text-red-500 mt-2">Hapus Gambar</button>
+                </div>
+
+
                 <div class="flex gap-2">
                     <input type="text" id="f-sku" placeholder="SKU/Barcode" class="flex-1 p-4 bg-slate-100 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-teal-500 transition border">
                     <button onclick="bukaScannerStok()" class="bg-teal-50 text-teal-600 px-4 rounded-xl hover:bg-teal-100 transition">
@@ -441,8 +791,9 @@
                 <input type="text" id="f-nama" placeholder="Nama Produk" class="w-full p-4 bg-slate-100 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-teal-500 transition">
                 <input type="text" id="f-kategori" list="kategori-list" placeholder="Kategori (opsional)" class="w-full p-4 bg-slate-100 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-teal-500 transition">
                 <datalist id="kategori-list"></datalist>
-                <input type="number" id="f-harga" placeholder="Harga" class="w-full p-4 bg-slate-100 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-teal-500 transition">
-                <input type="number" id="f-stok" placeholder="Stok Awal" class="w-full p-4 bg-slate-100 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-teal-500 transition">
+                <input type="number" inputmode="numeric" id="f-harga" placeholder="Harga" class="w-full p-4 bg-slate-100 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-teal-500 transition">
+                <input type="number" inputmode="numeric" id="f-modal" placeholder="Harga Beli / Modal (Rp)" class="w-full p-4 bg-orange-50 border border-orange-100 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-orange-500 transition text-orange-800 placeholder-orange-300">
+                <input type="number" inputmode="numeric" id="f-stok" placeholder="Stok Awal" class="w-full p-4 bg-slate-100 rounded-xl outline-none text-sm font-medium focus:bg-white focus:ring-2 focus:ring-teal-500 transition">
                 <button onclick="simpanProduk()" class="w-full mt-4 bg-teal-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-teal-200 active:scale-95 transition">Simpan Produk</button>
             </div>
         </div>
@@ -457,7 +808,7 @@
             </div>
             <div class="space-y-3">
                 <input type="text" id="pel-nama" placeholder="Nama Pelanggan" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-teal-500">
-                <input type="text" id="pel-nohp" placeholder="No. HP / WhatsApp" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-teal-500">
+                <input type="tel" id="pel-nohp" placeholder="No. HP / WhatsApp (08...)" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-teal-500">
                 <textarea id="pel-alamat" placeholder="Alamat (Opsional)" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 h-20"></textarea>
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <button onclick="closeModalTambahPelanggan()" class="py-3 text-gray-500 font-bold bg-slate-100 rounded-xl">Batal</button>
@@ -479,14 +830,42 @@
             <div class="space-y-4">
                 <div>
                     <label class="text-xs font-bold text-gray-500 block mb-1">Jumlah</label>
-                    <input type="number" id="edit-qty" class="w-full p-3 bg-slate-100 rounded-xl font-bold outline-none focus:ring-2 focus:ring-teal-500">
+                    <input type="number" inputmode="numeric" id="edit-qty" class="w-full p-3 bg-slate-100 rounded-xl font-bold outline-none focus:ring-2 focus:ring-teal-500">
                 </div>
                 <div>
                     <label class="text-xs font-bold text-gray-500 block mb-1">Diskon Item (Rp)</label>
-                    <input type="number" id="edit-diskon" class="w-full p-3 bg-slate-100 rounded-xl font-bold outline-none focus:ring-2 focus:ring-teal-500" placeholder="0">
+                    <input type="number" inputmode="numeric" id="edit-diskon" class="w-full p-3 bg-slate-100 rounded-xl font-bold outline-none focus:ring-2 focus:ring-teal-500" placeholder="0">
                 </div>
                 <button onclick="simpanEditItem()" class="w-full py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg hover:bg-teal-700 transition">Simpan Perubahan</button>
             </div>
+        </div>
+    </div>
+
+    <!-- MODAL PENDING CART -->
+    <div id="modal-pending" class="fixed inset-0 bg-black/60 z-[100] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-fadeIn max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg text-gray-800">Pesanan Disimpan</h3>
+                <button onclick="tutupModalPending()" class="text-gray-400 hover:text-gray-800">✕</button>
+            </div>
+            <div id="list-pending" class="space-y-3 overflow-y-auto flex-1">
+                <!-- List Pending -->
+            </div>
+            <div id="empty-pending" class="text-center py-10 text-gray-400 hidden">Tidak ada pesanan disimpan</div>
+        </div>
+    </div>
+
+    <!-- MODAL RIWAYAT STOK -->
+    <div id="modal-riwayat-stok" class="fixed inset-0 bg-black/60 z-[100] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl animate-fadeIn max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg text-gray-800">Riwayat Perubahan Stok</h3>
+                <button onclick="tutupModalRiwayatStok()" class="text-gray-400 hover:text-gray-800">✕</button>
+            </div>
+            <div id="list-riwayat-stok" class="space-y-3 overflow-y-auto flex-1 pr-1">
+                <!-- List Log Stok -->
+            </div>
+            <div id="empty-riwayat-stok" class="text-center py-10 text-gray-400 hidden">Belum ada riwayat</div>
         </div>
     </div>
 
@@ -498,6 +877,7 @@
             <div id="receipt-area" class="text-center p-4 border-2 border-dashed border-gray-200 rounded-xl mb-4 bg-gray-50">
                 <!-- Konten Struk -->
             </div>
+            <button id="btn-wa-struk" onclick="" class="w-full py-3 bg-green-500 text-white rounded-xl font-bold shadow-lg mb-3 flex items-center justify-center gap-2 hover:bg-green-600 transition no-print"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg> Kirim Struk WA</button>
 
             <div class="flex gap-3 no-print">
                 <button onclick="window.print()" class="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold shadow-lg">Cetak</button>
@@ -507,14 +887,10 @@
     </div>
 
     <!-- NAVIGASI -->
-    <nav class="fixed bottom-4 left-4 right-4 bg-white/95 backdrop-blur-xl border border-slate-200 shadow-xl shadow-slate-200/50 p-2 rounded-2xl flex justify-around items-center z-50">
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-200 p-2 flex justify-around items-center z-50 lg:hidden shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
         <button onclick="bukaHalaman('dashboard')" id="nav-dashboard" class="nav-btn active flex flex-col items-center gap-1 p-3 rounded-xl transition-all duration-300">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
             <span class="text-[10px] font-bold">HOME</span>
-        </button>
-        <button onclick="bukaHalaman('kasir')" id="nav-kasir" class="nav-btn text-gray-400 flex flex-col items-center gap-1 p-3 rounded-xl transition-all duration-300">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 17h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" stroke-width="2"/></svg>
-            <span class="text-[10px] font-bold">KASIR</span>
         </button>
         <button onclick="bukaHalaman('stok')" id="nav-stok" class="nav-btn text-gray-400 flex flex-col items-center gap-1 p-3 rounded-xl transition-all duration-300">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-width="2"/></svg>
