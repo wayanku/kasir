@@ -1,12 +1,14 @@
 // File: /Users/user/kasir/sw.js
 
-const CACHE_NAME = 'kasir-pro-offline-v10';
+const CACHE_NAME = 'kasir-pro-offline-v20';
 const urlsToCache = [
   './',
   './index.html',
+  './app.js',
   'https://cdn.tailwindcss.com',
-  'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap'
+  'https://unpkg.com/html5-qrcode',
+  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap',
+  'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js'
 ];
 
 // Install Service Worker & Cache Resources
@@ -17,6 +19,23 @@ self.addEventListener('install', event => {
         console.log('Menyimpan file untuk offline...');
         return cache.addAll(urlsToCache);
       })
+  );
+});
+
+// Activate Service Worker & Clean Up Old Caches
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.filter(cacheName => {
+          // Hapus cache lama yang tidak sama dengan CACHE_NAME saat ini
+          return cacheName.startsWith('kasir-pro-offline-') && cacheName !== CACHE_NAME;
+        }).map(cacheName => {
+          console.log('Menghapus cache lama:', cacheName);
+          return caches.delete(cacheName);
+        })
+      );
+    })
   );
 });
 
