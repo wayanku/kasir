@@ -1,3 +1,8 @@
+// [CANGGIH] Load Library Chart.js untuk Grafik Profesional
+const chartScript = document.createElement('script');
+chartScript.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+document.head.appendChild(chartScript);
+
 // REGISTER SERVICE WORKER (Agar bisa jalan Offline)
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -12,7 +17,11 @@ let riwayat = JSON.parse(localStorage.getItem('riwayat_transaksi')) || [];
 let pelanggan = JSON.parse(localStorage.getItem('pelanggan_data')) || [];
 let pendingCarts = JSON.parse(localStorage.getItem('pending_carts')) || [];
 let stockLog = JSON.parse(localStorage.getItem('stock_log')) || [];
-let currentUser = { id: 'OWNER', nama: 'Owner', role: 'admin' }; // Langsung set sebagai Owner
+let users = JSON.parse(localStorage.getItem('app_users')) || [
+    { id: 'OWNER', nama: 'Owner', role: 'admin', pin: '123456' },
+    { id: 'KASIR', nama: 'Kasir', role: 'kasir', pin: '1234' }
+];
+let currentUser = JSON.parse(sessionStorage.getItem('logged_user')) || null;
 let absensiLog = JSON.parse(localStorage.getItem('absensi_log')) || []; // [BARU] Log Absensi
 let pengeluaran = JSON.parse(localStorage.getItem('pengeluaran_data')) || []; // [BARU] Data Pengeluaran
 let vouchers = JSON.parse(localStorage.getItem('vouchers_data')) || []; // [BARU] Data Voucher
@@ -193,20 +202,52 @@ function updateClock() {
     clockEl.innerHTML = `${dateString}, <span class="font-mono">${timeString}</span>`;
 }
 
-// [BARU] Audio Beep untuk Scan
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playBeep() {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(1200, audioCtx.currentTime);
-    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-    oscillator.start();
-    oscillator.stop(audioCtx.currentTime + 0.1);
-}
+// [CANGGIH] Sound FX Engine (Synthesized Audio)
+const SoundFX = {
+    ctx: new (window.AudioContext || window.webkitAudioContext)(),
+    play(type) {
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        const now = this.ctx.currentTime;
+        if (type === 'click') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            osc.start(now);
+            osc.stop(now + 0.05);
+        } else if (type === 'success') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(500, now);
+            osc.frequency.linearRampToValueAtTime(1000, now + 0.1);
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.3);
+            osc.start(now);
+            osc.stop(now + 0.3);
+        } else if (type === 'error') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.linearRampToValueAtTime(100, now + 0.2);
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.2);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        } else if (type === 'beep') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(1200, now);
+            gain.gain.setValueAtTime(0.05, now);
+            osc.start(now);
+            osc.stop(now + 0.1);
+        }
+    }
+};
+
+function playBeep() { SoundFX.play('beep'); }
 
 // KEYBOARD LISTENER (USB SCANNER & SHORTCUTS)
 document.addEventListener('keydown', (e) => {
@@ -586,6 +627,35 @@ async function startKameraRetail() {
     });
 }
 
+// [CANGGIH] Setup Voice Search
+function setupVoiceSearch() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
+    
+    const searchInput = document.getElementById('in-search');
+    if (!searchInput || document.getElementById('btn-voice-search')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'btn-voice-search';
+    btn.innerHTML = '🎤';
+    btn.className = 'absolute right-12 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-teal-600 p-2';
+    btn.title = "Cari dengan suara";
+    btn.onclick = () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'id-ID';
+        recognition.start();
+        showToast("Katakan nama produk...", "info");
+        
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById('in-search').value = transcript;
+            doSearch(transcript);
+        };
+    };
+    
+    if(searchInput.parentElement) searchInput.parentElement.appendChild(btn);
+}
+
 function toggleSearch() {
     const box = document.getElementById('search-box');
     box.classList.toggle('hidden');
@@ -596,18 +666,20 @@ function toggleSearch() {
     }
 }
 
+// [CANGGIH] Smart Fuzzy Search
 function doSearch(val) {
     const res = document.getElementById('res-search');
     if(val.length < 1) { res.innerHTML = "<p class='text-center text-gray-400 mt-8'>Mulai ketik untuk mencari produk...</p>"; return; }
     
-    const filtered = gudang.filter(p => p.nama.toLowerCase().includes(val.toLowerCase()) || p.sku.includes(val));
+    const lowerVal = val.toLowerCase();
+    const filtered = gudang.filter(p => p.nama.toLowerCase().includes(lowerVal) || p.sku.includes(val));
     
     if(filtered.length === 0) { res.innerHTML = "<p class='text-center text-gray-400 mt-8'>Tidak ditemukan.</p>"; return; }
 
     res.innerHTML = filtered.map(p => `
-        <div onclick="tambahKeCart('${p.sku}'); toggleSearch();" class="flex justify-between items-center cursor-pointer hover:bg-teal-50 p-3 rounded-xl border border-slate-100">
+        <div onclick="tambahKeCart('${p.sku}'); toggleSearch();" class="flex justify-between items-center cursor-pointer hover:bg-teal-50 dark:hover:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-700 transition-colors">
             <div>
-                <b class="text-slate-800">${escapeHtml(p.nama)}</b><br>
+                <b class="text-slate-800 dark:text-slate-200">${escapeHtml(p.nama)}</b><br>
                 <small class="text-gray-500">${escapeHtml(p.sku)} ${p.kategori ? '• ' + escapeHtml(p.kategori) : ''}</small>
             </div>
             <div class="text-teal-600 font-bold">Rp ${parseInt(p.harga).toLocaleString()}</div>
@@ -728,6 +800,7 @@ function handleScanKasir(sku) {
             if(tambahKeCartCore(produk)) {
                 renderCart();
                 showToast(`${produk.nama} +1`, 'success');
+                SoundFX.play('success');
             }
         } else {
             tempCart.unshift({
@@ -750,9 +823,9 @@ function renderTempCart() {
     
     area.classList.remove('hidden');
     list.innerHTML = tempCart.map((item, i) => `
-        <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-teal-100 temp-item shadow-sm">
+        <div class="flex justify-between items-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-teal-100 dark:border-slate-700 temp-item shadow-sm">
             <div>
-                <div class="font-bold text-sm text-teal-900">${escapeHtml(item.nama)}</div>
+                <div class="font-bold text-sm text-teal-900 dark:text-teal-400">${escapeHtml(item.nama)}</div>
                 <div class="text-[10px] text-gray-400">${escapeHtml(item.sku)}</div>
             </div>
             <div class="flex items-center gap-3">
@@ -780,6 +853,7 @@ function masukKeranjang() {
     tempCart = [];
     renderTempCart();
     renderCart();
+    SoundFX.play('success');
     if(navigator.vibrate) navigator.vibrate([50, 50, 50]);
 }
 
@@ -838,6 +912,7 @@ function tambahKeCart(sku) {
     if(tambahKeCartCore(produk)) {
         renderCart();
         showToast(`${produk.nama} ditambahkan`, 'success');
+        SoundFX.play('success');
         playBeep();
     }
 }
@@ -858,14 +933,14 @@ function renderCart() {
         list.innerHTML = cart.map((item, i) => {
             const hargaSetelahDiskon = item.harga - (item.diskon || 0);
             return `
-                <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100 shadow-sm">
+                <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border border-slate-100 dark:border-slate-600 shadow-sm transition-all">
                     <div onclick="openModalEditItem(${i})" class="cursor-pointer flex-1">
-                        <div class="font-bold text-gray-800">${escapeHtml(item.nama)}</div>
-                        <div class="text-xs text-teal-600 font-bold mt-1">Rp ${hargaSetelahDiskon.toLocaleString()} ${item.diskon > 0 ? `<span class="text-red-400 line-through ml-1 text-[10px]">${item.harga.toLocaleString()}</span>` : ''}</div>
+                        <div class="font-bold text-gray-800 dark:text-slate-200">${escapeHtml(item.nama)}</div>
+                        <div class="text-xs text-teal-600 dark:text-teal-400 font-bold mt-1">Rp ${hargaSetelahDiskon.toLocaleString()} ${item.diskon > 0 ? `<span class="text-red-400 line-through ml-1 text-[10px]">${item.harga.toLocaleString()}</span>` : ''}</div>
                     </div>
                     <div class="flex items-center gap-3">
-                        <button onclick="updateQty(${i}, -1)" class="w-7 h-7 bg-white rounded-full shadow-sm text-slate-600 font-bold border border-slate-200 hover:bg-slate-100 flex items-center justify-center">-</button>
-                        <span class="font-bold text-gray-800 w-6 text-center">${item.qty}</span>
+                        <button onclick="updateQty(${i}, -1)" class="w-7 h-7 bg-white dark:bg-slate-600 rounded-full shadow-sm text-slate-600 dark:text-white font-bold border border-slate-200 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-500 flex items-center justify-center">-</button>
+                        <span class="font-bold text-gray-800 dark:text-white w-6 text-center">${item.qty}</span>
                         <button onclick="updateQty(${i}, 1)" class="w-7 h-7 bg-teal-600 text-white rounded-full shadow-md font-bold hover:bg-teal-700 flex items-center justify-center">+</button>
                         <button onclick="hapusItemCart(${i})" class="text-red-400 hover:text-red-600 ml-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                     </div>
@@ -890,6 +965,7 @@ function updateQty(i, n) {
     const item = cart[i];
     const newQty = item.qty + n;
 
+    SoundFX.play('click');
     if (newQty > 0) {
         const produkGudang = gudang.find(g => g.sku === item.sku);
         // Jika produk hilang dari gudang, gunakan qty saat ini sebagai batas
@@ -909,6 +985,7 @@ function updateQty(i, n) {
 // [BARU] Fungsi Hapus Item Langsung
 function hapusItemCart(i) {
     cart.splice(i, 1);
+    SoundFX.play('error'); // Sound hapus
     renderCart();
 }
 
@@ -953,9 +1030,9 @@ function bukaModalPending() {
     } else {
         empty.classList.add('hidden');
         list.innerHTML = pendingCarts.map((p, i) => `
-            <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
+            <div class="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600 flex justify-between items-center">
                 <div onclick="recallCart(${i})" class="cursor-pointer flex-1">
-                    <div class="font-bold text-slate-800">${escapeHtml(p.note)}</div>
+                    <div class="font-bold text-slate-800 dark:text-white">${escapeHtml(p.note)}</div>
                     <div class="text-xs text-slate-500">${new Date(p.date).toLocaleTimeString('id-ID')} • ${p.items.length} Item</div>
                 </div>
                 <button onclick="hapusPending(${i})" class="text-red-500 p-2 hover:bg-red-50 rounded-lg">✕</button>
@@ -1135,10 +1212,10 @@ function renderStok() {
         : gudang.filter(p => p.kategori === filterKategori);
 
     const renderedItems = produkToShow.slice(0, stokLimit).sort((a, b) => a.nama.localeCompare(b.nama)).map(p => `
-        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center cursor-pointer hover:shadow-md transition-shadow" onclick="openModalTambahProduk('${p.sku}')">
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm flex justify-between items-center cursor-pointer hover:shadow-md transition-shadow" onclick="openModalTambahProduk('${p.sku}')">
             <img src="${p.gambar || 'https://via.placeholder.com/80x80.png?text=No+Image'}" class="w-16 h-16 object-cover rounded-lg mr-4 bg-slate-100">
             <div class="flex-1 cursor-pointer" onclick="openModalTambahProduk('${p.sku}')">
-                <div class="font-bold text-gray-800 text-base">${escapeHtml(p.nama)}</div>
+                <div class="font-bold text-gray-800 dark:text-slate-200 text-base">${escapeHtml(p.nama)}</div>
                 <div class="flex items-center gap-2 mt-1">
                     <div class="text-xs text-gray-400 font-mono">${escapeHtml(p.sku)}</div>
                     <div class="text-xs font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">${formatRupiah(p.harga)}</div>
@@ -1625,6 +1702,10 @@ function prosesPembayaranFinal() {
     localStorage.setItem('pelanggan_data', JSON.stringify(pelanggan));
     
     showToast("Pembayaran Berhasil!", "success");
+    SoundFX.play('success');
+    // [CANGGIH] Ucapkan Total
+    ucapkan(`Total belanja ${total.toLocaleString()} rupiah. Terima kasih.`);
+    
     tutupModalBayar();
     
     // [BARU] Jika dari meja, kosongkan meja
@@ -1837,6 +1918,7 @@ function tampilkanStruk(trx) {
         <div class="mt-4 pt-2 border-t border-dashed">
             <button onclick="cetakStruk('${trx.id}')" class="w-full py-2 text-xs font-bold text-slate-600 bg-slate-200 rounded-lg hover:bg-slate-300 mb-2 border border-slate-300">🖨 Cetak Struk (Thermal)</button>
             <button onclick="batalkanTransaksi('${trx.id}')" class="w-full py-2 text-xs font-bold text-red-500 bg-red-50 rounded-lg hover:bg-red-100 border border-red-100">⚠ Batalkan Transaksi</button>
+            <button onclick="tutupStruk()" class="w-full py-2 text-xs font-bold text-slate-500 mt-2">Tutup</button>
         </div>
     `;
     
@@ -1914,6 +1996,20 @@ function renderLaporan() {
     document.getElementById('lpr-total-modal').innerText = `Rp ${totalModal.toLocaleString()}`;
     document.getElementById('lpr-total-pengeluaran').innerText = `Rp ${filteredPengeluaran.toLocaleString()}`;
     document.getElementById('lpr-laba-bersih').innerText = `Rp ${labaBersih.toLocaleString()}`;
+    
+    // Tambahkan Tombol Analisa AI di area laporan jika belum ada
+    const containerLaporan = document.getElementById('lpr-laba-bersih').parentElement.parentElement.parentElement; // Navigasi ke container utama laporan
+    if(!document.getElementById('btn-analisa-ai')) {
+        const btnAnalisa = document.createElement('button');
+        btnAnalisa.id = 'btn-analisa-ai';
+        btnAnalisa.className = "w-full mt-4 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2";
+        btnAnalisa.innerHTML = `<span>🤖</span> Analisa Bisnis Cerdas (AI)`;
+        btnAnalisa.onclick = () => analisaBisnis(filteredTrx);
+        // Insert setelah grid ringkasan
+        const gridRingkasan = document.getElementById('lpr-laba-bersih').parentElement.parentElement;
+        gridRingkasan.parentNode.insertBefore(btnAnalisa, gridRingkasan.nextSibling);
+    }
+
     // document.getElementById('lpr-laba-bersih').className = labaBersih >= 0 ? "text-2xl font-bold text-white" : "text-2xl font-bold text-red-200";
 
     const list = document.getElementById('list-riwayat');
@@ -1921,9 +2017,9 @@ function renderLaporan() {
         list.innerHTML = `<p class='text-center text-gray-400 py-8'>Belum ada riwayat transaksi.</p>`;
     } else {
         list.innerHTML = filteredTrx.slice().reverse().map(t => `
-        <div onclick='tampilkanStruk(${JSON.stringify(t)})' class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border-b border-slate-100 cursor-pointer hover:bg-slate-100">
+        <div onclick='tampilkanStruk(${JSON.stringify(t)})' class="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border-b border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">
             <div>
-                <div class="font-bold text-sm text-gray-800">${new Date(t.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
+                <div class="font-bold text-sm text-gray-800 dark:text-slate-200">${new Date(t.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
                 <div class="text-xs text-gray-400">${new Date(t.tanggal).toLocaleDateString('id-ID')}</div>
             </div>
             <div class="font-bold text-teal-600">Rp ${t.total.toLocaleString()}</div>
@@ -1963,9 +2059,9 @@ function renderMenuGrid(kategoriFilter = 'semua') {
         gridContainer.innerHTML = `<p class="text-center text-slate-400 col-span-full py-10">Tidak ada produk di kategori ini.</p>`;
     } else {
         gridContainer.innerHTML = produkToShow.sort((a,b) => a.nama.localeCompare(b.nama)).map(p => `
-            <div onclick="tambahKeCart('${p.sku}')" class="bg-slate-50 rounded-xl p-2 flex flex-col items-center text-center cursor-pointer hover:bg-teal-50 hover:ring-2 hover:ring-teal-500 transition-all active:scale-95">
+            <div onclick="tambahKeCart('${p.sku}')" class="bg-slate-50 dark:bg-slate-700 rounded-xl p-2 flex flex-col items-center text-center cursor-pointer hover:bg-teal-50 dark:hover:bg-slate-600 hover:ring-2 hover:ring-teal-500 transition-all active:scale-95">
                 <img src="${p.gambar || 'https://via.placeholder.com/150x150.png?text=No+Image'}" class="w-full h-24 object-cover rounded-lg mb-2 bg-white">
-                <p class="text-xs font-bold text-slate-700 flex-grow">${escapeHtml(p.nama)}</p>
+                <p class="text-xs font-bold text-slate-700 dark:text-slate-200 flex-grow">${escapeHtml(p.nama)}</p>
                 <p class="text-sm font-bold text-teal-600 mt-1">${formatRupiah(p.harga)}</p>
             </div>
         `).join('');
@@ -2213,9 +2309,60 @@ function shareLaporanWA() {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
 }
 
+// [CANGGIH] Analisa Bisnis Otomatis
+function analisaBisnis(trxData) {
+    if(!trxData || trxData.length === 0) return showToast("Tidak ada data untuk dianalisa", "error");
+
+    // 1. Prediksi Penjualan
+    const totalOmzet = trxData.reduce((sum, t) => sum + t.total, 0);
+    const avgDaily = totalOmzet / (trxData.length > 0 ? trxData.length : 1); // Simplifikasi
+    const prediction = avgDaily * 30;
+
+    // 2. Produk Lambat (Dead Stock) - Stok ada tapi tidak laku di data terpilih
+    const soldSkus = new Set();
+    trxData.forEach(t => t.items.forEach(i => soldSkus.add(i.sku)));
+    const deadStock = gudang.filter(p => p.stok > 0 && !soldSkus.has(p.sku)).slice(0, 5);
+
+    // 3. Waktu Teramai
+    const hours = {};
+    trxData.forEach(t => {
+        const h = new Date(t.tanggal).getHours();
+        hours[h] = (hours[h] || 0) + 1;
+    });
+    const busyHour = Object.keys(hours).reduce((a, b) => hours[a] > hours[b] ? a : b, 0);
+
+    let html = `
+        <h3 class="font-bold text-xl mb-4 text-indigo-800">🤖 Analisa Bisnis Cerdas</h3>
+        
+        <div class="bg-indigo-50 p-4 rounded-xl mb-4 border border-indigo-100">
+            <h4 class="font-bold text-indigo-700 mb-2">📈 Performa & Prediksi</h4>
+            <p class="text-sm text-slate-700">Rata-rata omzet per transaksi: <b>Rp ${parseInt(avgDaily).toLocaleString()}</b>.</p>
+            <p class="text-sm text-slate-700 mt-1">Jika tren berlanjut, potensi omzet bulan depan: <b>Rp ${parseInt(prediction).toLocaleString()}</b>.</p>
+            <p class="text-sm text-slate-700 mt-1">Jam tersibuk toko Anda adalah pukul <b>${busyHour}:00 - ${parseInt(busyHour)+1}:00</b>.</p>
+        </div>
+
+        <div class="bg-orange-50 p-4 rounded-xl mb-4 border border-orange-100">
+            <h4 class="font-bold text-orange-700 mb-2">⚠️ Perhatian (Dead Stock)</h4>
+            <p class="text-xs text-slate-600 mb-2">Produk ini memiliki stok tapi belum terjual di periode ini:</p>
+            <ul class="list-disc pl-4 text-sm text-slate-700">
+                ${deadStock.length > 0 ? deadStock.map(p => `<li>${p.nama} (Stok: ${p.stok})</li>`).join('') : '<li>Tidak ada stok mati. Bagus!</li>'}
+            </ul>
+            ${deadStock.length > 0 ? '<p class="text-xs text-orange-600 mt-2">Saran: Buat diskon atau bundle untuk produk di atas.</p>' : ''}
+        </div>
+
+        <button onclick="tutupStruk()" class="w-full py-3 bg-slate-800 text-white font-bold rounded-xl shadow-lg">Tutup Analisa</button>
+    `;
+
+    const area = document.getElementById('receipt-area');
+    area.innerHTML = html;
+    document.getElementById('modal-struk').classList.remove('hidden');
+    document.getElementById('modal-struk').classList.add('flex');
+}
+
+// [CANGGIH] Render Chart menggunakan Chart.js
 function renderSalesChart(salesData, startDate, endDate) {
     const container = document.getElementById('sales-chart-container');
-    container.innerHTML = ''; // Clear previous chart
+    container.innerHTML = '<canvas id="salesChart" style="width:100%; height:100%;"></canvas>';
 
     const allDays = [];
     let currentDate = new Date(startDate);
@@ -2227,26 +2374,54 @@ function renderSalesChart(salesData, startDate, endDate) {
     const labels = allDays.map(d => d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }));
     const data = allDays.map(d => salesData[d.toISOString().split('T')[0]] || 0);
 
-    const maxData = Math.max(...data);
-    if (maxData === 0) {
-        container.innerHTML = `<p class="text-center text-gray-400 h-full flex items-center justify-center">Tidak ada data penjualan untuk ditampilkan.</p>`;
+    if (typeof Chart === 'undefined') {
+        container.innerHTML = '<p class="text-center text-red-400 py-10">Memuat grafik canggih...</p>';
         return;
     }
 
-    const chartHTML = `
-        <div class="w-full h-full flex gap-2 items-end border-l border-b border-slate-200 pl-2 pb-1">
-            ${data.map((value, index) => `
-                <div class="flex-1 flex flex-col items-center gap-1 group">
-                    <div class="bg-slate-700 text-white text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        Rp ${value.toLocaleString()}
-                    </div>
-                    <div class="w-full bg-teal-200 hover:bg-teal-400 transition-colors rounded-t-md" style="height: ${ (value / maxData) * 100 }%;"></div>
-                    <div class="text-[10px] text-slate-500">${labels[index].split(' ')[0]}</div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    container.innerHTML = chartHTML;
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Omzet Penjualan',
+                data: data,
+                borderColor: '#0d9488', // Teal 600
+                backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                borderWidth: 2,
+                tension: 0.4, // Smooth curves
+                fill: true,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#0d9488',
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Rp ' + context.parsed.y.toLocaleString('id-ID');
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { borderDash: [2, 4], color: '#f1f5f9' },
+                    ticks: { callback: (val) => (val/1000) + 'k' }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
 }
 
 // --- DASHBOARD ---
@@ -2450,23 +2625,81 @@ function resetCart() {
     }
 }
 
-// Inisialisasi Aplikasi
-window.onload = () => { 
+// [CANGGIH] SISTEM LOGIN PIN
+let loginPin = "";
+
+function inputLogin(n) {
+    if (loginPin.length < 6) {
+        loginPin += n;
+        updateLoginUI();
+    }
+}
+
+function hapusLogin() {
+    loginPin = loginPin.slice(0, -1);
+    updateLoginUI();
+}
+
+function updateLoginUI() {
+    const dots = document.querySelectorAll('.pin-dot');
+    dots.forEach((d, i) => {
+        if (i < loginPin.length) d.classList.add('bg-teal-600', 'scale-110');
+        else d.classList.remove('bg-teal-600', 'scale-110');
+    });
+}
+
+function processLogin() {
+    const user = users.find(u => u.pin === loginPin);
+    if (user) {
+        currentUser = user;
+        sessionStorage.setItem('logged_user', JSON.stringify(user));
+        document.getElementById('login-screen').classList.add('hidden');
+        initAfterLogin();
+        showToast(`Selamat Datang, ${user.nama}`);
+    } else {
+        showToast("PIN Salah!", "error");
+        loginPin = "";
+        updateLoginUI();
+        if(navigator.vibrate) navigator.vibrate(200);
+    }
+}
+
+function logout() {
+    if(confirm("Keluar dari aplikasi?")) {
+        currentUser = null;
+        sessionStorage.removeItem('logged_user');
+        location.reload();
+    }
+}
+
+function initAfterLogin() {
     // Set nama toko di header
     document.getElementById('header-nama-toko').innerHTML = profilToko.nama;
     
-    // Tampilkan badge owner
+    // Tampilkan badge user
     const badge = document.getElementById('user-badge');
     badge.classList.remove('hidden');
-    badge.innerText = 'OWNER';
+    badge.innerText = currentUser.role === 'admin' ? 'OWNER' : 'KASIR';
+    badge.className = currentUser.role === 'admin' 
+        ? "text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full inline-block mb-1"
+        : "text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full inline-block mb-1";
     
     bukaHalaman('dashboard');
+    updateClock(); 
+    setInterval(updateClock, 1000);
+    updateNetworkStatus();
+    setupVoiceSearch();
+}
 
-    // renderCart(); // Tidak perlu render cart di awal
-    updateClock(); // Panggil sekali saat load
-    setInterval(updateClock, 1000); // Update tiap detik
-
-    updateNetworkStatus(); // Panggil saat load
+// Inisialisasi Aplikasi
+window.onload = () => { 
+    // Cek Login
+    if(!currentUser) {
+        document.getElementById('login-screen').classList.remove('hidden');
+    } else {
+        document.getElementById('login-screen').classList.add('hidden');
+        initAfterLogin();
+    }
 
     // Tambahkan event listener untuk search dengan debounce
     const searchInput = document.getElementById('in-search');
@@ -2482,7 +2715,7 @@ function renderMeja() {
     if(!container) return;
     
     container.innerHTML = mejaData.map(m => `
-        <div onclick="pilihMeja(${m.id})" class="p-4 rounded-xl border cursor-pointer flex flex-col items-center justify-center gap-2 transition-all ${m.status === 'terisi' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-teal-50 hover:border-teal-300'}">
+        <div onclick="pilihMeja(${m.id})" class="p-4 rounded-xl border cursor-pointer flex flex-col items-center justify-center gap-2 transition-all ${m.status === 'terisi' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-teal-50 hover:border-teal-300'}">
             <span class="font-bold text-xl">Meja ${m.id}</span>
             <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${m.status === 'terisi' ? 'bg-red-100' : 'bg-slate-100'}">${m.status}</span>
             ${m.pesanan.length > 0 ? `<span class="text-[10px] bg-white px-2 py-1 rounded-full border shadow-sm mt-1">${m.pesanan.length} Item</span>` : ''}
