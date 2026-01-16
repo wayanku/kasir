@@ -19,7 +19,7 @@ let vouchers = JSON.parse(localStorage.getItem('vouchers_data')) || []; // [BARU
 let settings = JSON.parse(localStorage.getItem('app_settings')) || { targetOmzet: 500000, memberLevels: { silver: { pts: 100, disc: 5 }, gold: { pts: 500, disc: 10 } } }; // [BARU] App Settings
 let mejaData = JSON.parse(localStorage.getItem('meja_data')) || Array.from({length: 9}, (_, i) => ({ id: i+1, status: 'kosong', pesanan: [] })); // [BARU] Data Meja (Default 9 meja)
 let activeTableId = null; // Meja yang sedang aktif/dipilih
-let cart = [];
+let cart = JSON.parse(localStorage.getItem('current_cart')) || []; // [BARU] Load cart dari storage
 let remainingCartItems = []; // [BARU] Untuk split bill retail
 let tempCart = []; // Penampung scan sementara
 let scanner = null;
@@ -43,6 +43,7 @@ let profilToko = JSON.parse(localStorage.getItem('profil_toko')) || {
     infoBayar: '',
     happyHour: { start: '', end: '', percent: 0 }
 };
+let isProcessingPay = false; // [BARU] Flag untuk mencegah double submit
 
 // --- PWA INSTALL PROMPT ---
 let deferredPrompt;
@@ -168,8 +169,29 @@ const debounce = (func, delay) => {
     };
 };
 
+// Helper Escape HTML (Keamanan XSS)
+const escapeHtml = (text) => {
+    if (!text) return text;
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
+
 // Helper Format Rupiah
 const formatRupiah = (val) => 'Rp ' + parseInt(val || 0).toLocaleString('id-ID');
+
+// [BARU] Helper Jam Digital
+function updateClock() {
+    const clockEl = document.getElementById('clock');
+    if (!clockEl) return;
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const dateString = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' });
+    clockEl.innerHTML = `${dateString}, <span class="font-mono">${timeString}</span>`;
+}
 
 // [BARU] Audio Beep untuk Scan
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -205,6 +227,9 @@ document.addEventListener('keydown', (e) => {
 
     if (e.key === 'Enter') {
         if (barcodeBuffer.length > 0) {
+            // Cegah scan jika ada modal terbuka agar tidak mengacaukan state
+            if (document.querySelector('.modal:not(.hidden), #modal-bayar:not(.hidden), #modal-split-bill:not(.hidden)')) { barcodeBuffer = ""; return; }
+            
             if (document.getElementById('p-kasir').classList.contains('active')) {
                 handleScanKasir(barcodeBuffer);
             } else if (document.getElementById('p-stok').classList.contains('active')) {
@@ -582,8 +607,8 @@ function doSearch(val) {
     res.innerHTML = filtered.map(p => `
         <div onclick="tambahKeCart('${p.sku}'); toggleSearch();" class="flex justify-between items-center cursor-pointer hover:bg-teal-50 p-3 rounded-xl border border-slate-100">
             <div>
-                <b class="text-slate-800">${p.nama}</b><br>
-                <small class="text-gray-500">${p.sku} ${p.kategori ? '• ' + p.kategori : ''}</small>
+                <b class="text-slate-800">${escapeHtml(p.nama)}</b><br>
+                <small class="text-gray-500">${escapeHtml(p.sku)} ${p.kategori ? '• ' + escapeHtml(p.kategori) : ''}</small>
             </div>
             <div class="text-teal-600 font-bold">Rp ${parseInt(p.harga).toLocaleString()}</div>
         </div>
@@ -642,21 +667,22 @@ function closeModalTambahProduk() {
 function simpanProduk() {
     const sku = document.getElementById('f-sku').value;
     const nama = document.getElementById('f-nama').value;
-    const harga = document.getElementById('f-harga').value;
-    const modal = document.getElementById('f-modal').value; // Ambil modal
+    const harga = parseInt(document.getElementById('f-harga').value) || 0;
+    const modal = parseInt(document.getElementById('f-modal').value) || 0;
     const kategori = document.getElementById('f-kategori').value.trim();
-    const stok = document.getElementById('f-stok').value;
+    const stok = parseInt(document.getElementById('f-stok').value) || 0;
     const gambar = tempImageData;
 
-    if(!sku || !nama || !harga) return showToast("Data SKU, Nama, dan Harga wajib diisi!", "error");
+    if(!sku || !nama) return showToast("Data SKU dan Nama wajib diisi!", "error");
+    if(harga < 0 || modal < 0 || stok < 0) return showToast("Harga, Modal, dan Stok tidak boleh negatif!", "error");
 
     const index = gudang.findIndex(p => p.sku === sku);
     if(index > -1) {
         logStockChange(sku, nama, parseInt(stok) - gudang[index].stok, 'Edit Manual');
-        gudang[index] = {sku, nama, harga, modal: modal || 0, kategori, stok: parseInt(stok) || 0, gambar};
+        gudang[index] = {sku, nama, harga, modal, kategori, stok, gambar};
     } else {
-        gudang.push({sku, nama, harga, modal: modal || 0, kategori, stok: parseInt(stok) || 0, gambar});
-        logStockChange(sku, nama, parseInt(stok), 'Produk Baru');
+        gudang.push({sku, nama, harga, modal, kategori, stok, gambar});
+        logStockChange(sku, nama, stok, 'Produk Baru');
     }
 
     localStorage.setItem('gudang_data', JSON.stringify(gudang));
@@ -699,9 +725,10 @@ function handleScanKasir(sku) {
     } else {
         ucapkan(produk.nama);
         if (kasirMode === 'retail') {
-            tambahKeCartCore(produk);
-            renderCart();
-            showToast(`${produk.nama} +1`, 'success');
+            if(tambahKeCartCore(produk)) {
+                renderCart();
+                showToast(`${produk.nama} +1`, 'success');
+            }
         } else {
             tempCart.unshift({
                 ...produk,
@@ -725,8 +752,8 @@ function renderTempCart() {
     list.innerHTML = tempCart.map((item, i) => `
         <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-teal-100 temp-item shadow-sm">
             <div>
-                <div class="font-bold text-sm text-teal-900">${item.nama}</div>
-                <div class="text-[10px] text-gray-400">${item.sku}</div>
+                <div class="font-bold text-sm text-teal-900">${escapeHtml(item.nama)}</div>
+                <div class="text-[10px] text-gray-400">${escapeHtml(item.sku)}</div>
             </div>
             <div class="flex items-center gap-3">
                 <span class="text-xs font-bold text-teal-600">Rp ${parseInt(item.harga).toLocaleString()}</span>
@@ -758,18 +785,34 @@ function masukKeranjang() {
 
 function tambahKeCartCore(produk) {
     const index = cart.findIndex(c => c.sku === produk.sku);
+    const produkGudang = gudang.find(g => g.sku === produk.sku);
+    
+    if (!produkGudang) {
+        showToast("Produk tidak valid/dihapus", "error");
+        return false;
+    }
+
     if(index > -1) {
         const item = cart[index];
-        const stokGudang = gudang.find(g => g.sku === produk.sku).stok;
-        if(item.qty < stokGudang) {
+        // Cek stok gudang dengan aman (jika produk dihapus saat di keranjang)
+        const maxStok = produkGudang.stok;
+        if(item.qty < maxStok) {
             item.qty++;
+            cart.splice(index, 1);
+            cart.unshift(item);
+            return true;
         } else {
-            showToast(`Stok ${item.nama} tidak mencukupi`, 'error');
+            showToast(`Stok ${item.nama} habis (Sisa: ${maxStok})`, 'error');
+            return false;
         }
-        cart.splice(index, 1);
-        cart.unshift(item);
     } else {
-        cart.unshift({...produk, qty: 1, diskon: 0 });
+        if (produkGudang.stok > 0) {
+            cart.unshift({...produk, harga: parseInt(produk.harga), qty: 1, diskon: 0 });
+            return true;
+        } else {
+            showToast(`Stok ${produk.nama} habis!`, 'error');
+            return false;
+        }
     }
 }
 
@@ -792,15 +835,17 @@ function redirectKeStok() {
 function tambahKeCart(sku) {
     const produk = gudang.find(p => p.sku === sku);
     if(!produk) return showToast("Produk tidak ditemukan", "error");
-    tambahKeCartCore(produk);
-    renderCart();
-    showToast(`${produk.nama} ditambahkan`, 'success');
-    playBeep();
+    if(tambahKeCartCore(produk)) {
+        renderCart();
+        showToast(`${produk.nama} ditambahkan`, 'success');
+        playBeep();
+    }
 }
 
 function renderCart() {
     const list = document.getElementById('cart-list');
     const totalEl = document.getElementById('total-harga');
+    localStorage.setItem('current_cart', JSON.stringify(cart)); // [BARU] Simpan cart setiap render
 
     if(cart.length === 0) {
         list.innerHTML = `
@@ -815,13 +860,14 @@ function renderCart() {
             return `
                 <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100 shadow-sm">
                     <div onclick="openModalEditItem(${i})" class="cursor-pointer flex-1">
-                        <div class="font-bold text-gray-800">${item.nama}</div>
+                        <div class="font-bold text-gray-800">${escapeHtml(item.nama)}</div>
                         <div class="text-xs text-teal-600 font-bold mt-1">Rp ${hargaSetelahDiskon.toLocaleString()} ${item.diskon > 0 ? `<span class="text-red-400 line-through ml-1 text-[10px]">${item.harga.toLocaleString()}</span>` : ''}</div>
                     </div>
                     <div class="flex items-center gap-3">
-                        <button onclick="updateQty(${i}, -1)" class="w-8 h-8 bg-white rounded-full shadow-sm text-slate-600 font-bold border border-slate-200 hover:bg-slate-100">-</button>
+                        <button onclick="updateQty(${i}, -1)" class="w-7 h-7 bg-white rounded-full shadow-sm text-slate-600 font-bold border border-slate-200 hover:bg-slate-100 flex items-center justify-center">-</button>
                         <span class="font-bold text-gray-800 w-6 text-center">${item.qty}</span>
-                        <button onclick="updateQty(${i}, 1)" class="w-8 h-8 bg-teal-600 text-white rounded-full shadow-md font-bold hover:bg-teal-700">+</button>
+                        <button onclick="updateQty(${i}, 1)" class="w-7 h-7 bg-teal-600 text-white rounded-full shadow-md font-bold hover:bg-teal-700 flex items-center justify-center">+</button>
+                        <button onclick="hapusItemCart(${i})" class="text-red-400 hover:text-red-600 ml-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                     </div>
                 </div>
             `;
@@ -845,15 +891,24 @@ function updateQty(i, n) {
     const newQty = item.qty + n;
 
     if (newQty > 0) {
-        const stokGudang = gudang.find(g => g.sku === item.sku).stok;
-        if (newQty <= stokGudang) {
+        const produkGudang = gudang.find(g => g.sku === item.sku);
+        // Jika produk hilang dari gudang, gunakan qty saat ini sebagai batas
+        const maxStok = produkGudang ? produkGudang.stok : item.qty;
+        
+        if (newQty <= maxStok) {
             item.qty = newQty;
         } else {
-            showToast(`Stok ${item.nama} hanya tersisa ${stokGudang}`, 'error');
+            showToast(`Stok ${item.nama} hanya tersisa ${maxStok}`, 'error');
         }
     } else {
         cart.splice(i, 1);
     }
+    renderCart();
+}
+
+// [BARU] Fungsi Hapus Item Langsung
+function hapusItemCart(i) {
+    cart.splice(i, 1);
     renderCart();
 }
 
@@ -900,7 +955,7 @@ function bukaModalPending() {
         list.innerHTML = pendingCarts.map((p, i) => `
             <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
                 <div onclick="recallCart(${i})" class="cursor-pointer flex-1">
-                    <div class="font-bold text-slate-800">${p.note}</div>
+                    <div class="font-bold text-slate-800">${escapeHtml(p.note)}</div>
                     <div class="text-xs text-slate-500">${new Date(p.date).toLocaleTimeString('id-ID')} • ${p.items.length} Item</div>
                 </div>
                 <button onclick="hapusPending(${i})" class="text-red-500 p-2 hover:bg-red-50 rounded-lg">✕</button>
@@ -1013,7 +1068,7 @@ function renderSplitList() {
         return `
         <div onclick="toggleSplitItem(${i})" class="flex justify-between items-center p-3 rounded-xl border cursor-pointer transition ${isSelected ? 'bg-teal-50 border-teal-500 ring-1 ring-teal-500' : 'bg-white border-slate-200'}">
             <div>
-                <div class="font-bold text-sm text-slate-800">${item.nama}</div>
+                <div class="font-bold text-sm text-slate-800">${escapeHtml(item.nama)}</div>
                 <div class="text-xs text-slate-500">${item.qty} x ${item.harga.toLocaleString()}</div>
             </div>
             <div class="font-bold text-teal-600">Rp ${sub.toLocaleString()}</div>
@@ -1028,7 +1083,16 @@ function prosesSplitBill() {
     
     // Buat cart sementara berisi item yang dipilih
     const originalCart = [...cart];
-    cart = splitSelection.map(i => originalCart[i]);
+    const bayar = [];
+    const sisa = [];
+
+    originalCart.forEach((item, i) => {
+        if(splitSelection.includes(i)) bayar.push(item);
+        else sisa.push(item);
+    });
+    
+    cart = bayar;
+    remainingCartItems = sisa; // Simpan sisa item untuk dikembalikan nanti
     
     tutupModalSplitBill();
     bayarSekarang(); // Proses bayar dengan cart yang sudah difilter
@@ -1074,16 +1138,16 @@ function renderStok() {
         <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center cursor-pointer hover:shadow-md transition-shadow" onclick="openModalTambahProduk('${p.sku}')">
             <img src="${p.gambar || 'https://via.placeholder.com/80x80.png?text=No+Image'}" class="w-16 h-16 object-cover rounded-lg mr-4 bg-slate-100">
             <div class="flex-1 cursor-pointer" onclick="openModalTambahProduk('${p.sku}')">
-                <div class="font-bold text-gray-800 text-base">${p.nama}</div>
+                <div class="font-bold text-gray-800 text-base">${escapeHtml(p.nama)}</div>
                 <div class="flex items-center gap-2 mt-1">
-                    <div class="text-xs text-gray-400 font-mono">${p.sku}</div>
+                    <div class="text-xs text-gray-400 font-mono">${escapeHtml(p.sku)}</div>
                     <div class="text-xs font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">${formatRupiah(p.harga)}</div>
                 </div>
-                ${p.kategori ? `<div class="mt-1 text-xs text-gray-500 inline-block">${p.kategori}</div>` : ''}
+                ${p.kategori ? `<div class="mt-1 text-xs text-gray-500 inline-block">${escapeHtml(p.kategori)}</div>` : ''}
             </div>
             <div class="flex flex-col items-end gap-2 ml-4">
-                <span class="px-3 py-1 rounded-full text-xs font-bold ${p.stok < 5 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}">
-                    Stok: ${p.stok}
+                <span class="px-3 py-1 rounded-full text-xs font-bold ${p.stok <= 0 ? 'bg-gray-200 text-gray-600' : (p.stok < 5 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600')}">
+                    ${p.stok <= 0 ? 'Habis' : 'Stok: ' + p.stok}
                 </span>
                 <button onclick="cetakLabelRak('${p.sku}'); event.stopPropagation();" class="text-xs text-indigo-500 font-bold bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition mb-1">Label</button>
                 <button onclick="hapusProduk(event, '${p.sku}')" class="text-xs text-red-400 font-bold bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition">Hapus</button>
@@ -1103,6 +1167,11 @@ function hapusProduk(event, sku) {
     event.stopPropagation(); // Mencegah modal edit terbuka
     if(confirm('Yakin hapus produk ini? Aksi ini tidak bisa dibatalkan.')) {
         gudang = gudang.filter(p => p.sku !== sku);
+        
+        // [FIX] Hapus juga dari keranjang agar tidak error
+        cart = cart.filter(c => c.sku !== sku);
+        tempCart = tempCart.filter(c => c.sku !== sku);
+        
         localStorage.setItem('gudang_data', JSON.stringify(gudang));
         renderStok();
         showToast("Produk berhasil dihapus", "success");
@@ -1152,7 +1221,7 @@ function bukaModalRiwayatStok() {
         list.innerHTML = stockLog.map(log => `
             <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-sm">
                 <div class="flex justify-between font-bold text-slate-700">
-                    <span>${log.nama}</span>
+                    <span>${escapeHtml(log.nama)}</span>
                     <span class="${log.change > 0 ? 'text-emerald-600' : 'text-red-500'}">${log.change > 0 ? '+' : ''}${log.change}</span>
                 </div>
                 <div class="flex justify-between text-xs text-slate-400 mt-1">
@@ -1186,9 +1255,9 @@ function renderPelanggan() {
     list.innerHTML = pelanggan.map(p => `
         <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">
             <div>
-                <div class="font-bold text-gray-800">${p.nama}</div>
-                <div class="text-xs text-gray-500">${p.nohp} <span class="ml-2 bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold text-[10px]">${p.poin || 0} Poin</span></div>
-                <div class="text-[10px] text-gray-400 truncate max-w-[200px]">${p.alamat || '-'}</div>
+                <div class="font-bold text-gray-800">${escapeHtml(p.nama)}</div>
+                <div class="text-xs text-gray-500">${escapeHtml(p.nohp)} <span class="ml-2 bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold text-[10px]">${p.poin || 0} Poin</span></div>
+                <div class="text-[10px] text-gray-400 truncate max-w-[200px]">${escapeHtml(p.alamat || '-')}</div>
             </div>
             <button onclick="hapusPelanggan('${p.id}')" class="text-red-500 bg-red-50 p-2 rounded-lg hover:bg-red-100">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -1450,14 +1519,25 @@ function hitungKembalian() {
 }
 
 function prosesPembayaranFinal() {
+    if(isProcessingPay) return; // [BARU] Cegah double submit
+    isProcessingPay = true;
+
     const total = hitungTotalBayar();
     const uang = parseInt(document.getElementById('input-uang').value) || 0;
     
-    if(metodePembayaran !== 'hutang' && uang < total) return showToast("Uang kurang!", "error");
-    
+    if(metodePembayaran !== 'hutang' && uang < total) {
+        isProcessingPay = false;
+        return showToast("Uang kurang!", "error");
+    }
+    // [FIX] Kembalian untuk hutang harus 0 (karena uang masuk dianggap 0 atau DP, tapi di sini hutang full)
+    const kembali = metodePembayaran === 'hutang' ? 0 : (uang - total);
+
     // Validasi Hutang
     const pelId = document.getElementById('pilih-pelanggan').value;
-    if(metodePembayaran === 'hutang' && !pelId) return showToast("Pilih pelanggan dulu!", "error");
+    if(metodePembayaran === 'hutang' && !pelId) {
+        isProcessingPay = false;
+        return showToast("Pilih pelanggan dulu!", "error");
+    }
 
     let totalBayar = 0;
     const itemsStruk = [];
@@ -1532,7 +1612,7 @@ function prosesPembayaranFinal() {
         pajak: pajakNominal,
         total: total,
         bayar: uang,
-        kembali: uang - total,
+        kembali: kembali,
         pelanggan: pelData ? { nama: pelData.nama, id: pelData.id, nohp: pelData.nohp, poinEarned: poinDidapat } : null,
         metode: metodePembayaran
     };
@@ -1580,6 +1660,7 @@ function prosesPembayaranFinal() {
     renderKategoriFilter();
     renderStok();
     tampilkanStruk(transaksi);
+    isProcessingPay = false; // [BARU] Reset flag
 }
 
 // STRUK & LAPORAN
@@ -1802,11 +1883,15 @@ function renderLaporan() {
         t.items.forEach(item => {
             totalProdukTerjual += item.qty;
             // Hitung Modal (HPP)
-            // Cek apakah item punya data modal tersimpan di struk (jika fitur baru) atau ambil dari gudang
-            // Idealnya modal disimpan di struk saat transaksi agar perubahan harga modal di masa depan tidak merubah laporan masa lalu.
-            // Untuk sekarang kita ambil dari gudang (current cost) jika di struk tidak ada.
-            const produkGudang = gudang.find(g => g.sku === item.sku);
-            const modalPerItem = produkGudang ? (parseInt(produkGudang.modal) || 0) : 0;
+            // [FIX] Prioritaskan modal yang tersimpan di riwayat transaksi (snapshot)
+            // Jika tidak ada (data lama), baru ambil dari gudang saat ini
+            let modalPerItem = 0;
+            if (item.hasOwnProperty('modal')) {
+                modalPerItem = parseInt(item.modal) || 0;
+            } else {
+                const produkGudang = gudang.find(g => g.sku === item.sku);
+                modalPerItem = produkGudang ? (parseInt(produkGudang.modal) || 0) : 0;
+            }
             totalModal += (modalPerItem * item.qty);
         });
 
@@ -1880,7 +1965,7 @@ function renderMenuGrid(kategoriFilter = 'semua') {
         gridContainer.innerHTML = produkToShow.sort((a,b) => a.nama.localeCompare(b.nama)).map(p => `
             <div onclick="tambahKeCart('${p.sku}')" class="bg-slate-50 rounded-xl p-2 flex flex-col items-center text-center cursor-pointer hover:bg-teal-50 hover:ring-2 hover:ring-teal-500 transition-all active:scale-95">
                 <img src="${p.gambar || 'https://via.placeholder.com/150x150.png?text=No+Image'}" class="w-full h-24 object-cover rounded-lg mb-2 bg-white">
-                <p class="text-xs font-bold text-slate-700 flex-grow">${p.nama}</p>
+                <p class="text-xs font-bold text-slate-700 flex-grow">${escapeHtml(p.nama)}</p>
                 <p class="text-sm font-bold text-teal-600 mt-1">${formatRupiah(p.harga)}</p>
             </div>
         `).join('');
@@ -1973,7 +2058,7 @@ function renderListProdukBarcode() {
     }
     list.innerHTML = gudang.map(p => `
         <div onclick="setBarcodeFromProduct('${p.sku}', '${p.nama}')" class="flex justify-between items-center p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-indigo-50 border border-slate-100">
-            <span class="font-bold text-sm text-slate-700">${p.nama}</span>
+            <span class="font-bold text-sm text-slate-700">${escapeHtml(p.nama)}</span>
             <span class="text-xs font-mono text-slate-500 bg-white px-2 py-1 rounded border">${p.sku}</span>
         </div>
     `).join('');
@@ -2067,7 +2152,7 @@ function renderPengeluaran() {
     list.innerHTML = pengeluaran.map(p => `
         <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
             <div>
-                <div class="font-bold text-slate-800">${p.nama} <span class="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-500 ml-1">${p.kategori}</span></div>
+                <div class="font-bold text-slate-800">${escapeHtml(p.nama)} <span class="text-[10px] bg-slate-200 px-1.5 py-0.5 rounded text-slate-500 ml-1">${escapeHtml(p.kategori)}</span></div>
                 <div class="text-xs text-slate-400">${new Date(p.tanggal).toLocaleDateString('id-ID')}</div>
             </div>
             <div class="flex items-center gap-3">
@@ -2178,9 +2263,9 @@ function renderDashboard() {
     const lowStockList = document.getElementById('db-low-stock-list');
     if (lowStockItems.length > 0) {
         lowStockList.innerHTML = lowStockItems.map(p => `
-            <div class="flex justify-between items-center text-sm p-2 rounded-lg hover:bg-slate-50">
-                <span>${p.nama}</span>
-                <span class="font-bold text-red-500">Sisa ${p.stok}</span>
+            <div class="flex justify-between items-center text-sm p-3 rounded-lg hover:bg-slate-50 border-b border-slate-100 last:border-b-0">
+                <span class="font-medium text-slate-700">${escapeHtml(p.nama)}</span>
+                <span class="font-bold ${p.stok === 0 ? 'text-gray-400' : 'text-red-500'}">Sisa ${p.stok}</span>
             </div>
         `).join('');
     } else {
@@ -2215,10 +2300,10 @@ function renderDashboard() {
 
     if (sortedSales.length > 0) {
         topSellingList.innerHTML = sortedSales.map((p, i) => `
-            <div class="flex justify-between items-center p-2 border-b border-slate-50 last:border-0">
+            <div class="flex justify-between items-center p-3 border-b border-slate-100 last:border-b-0">
                 <div class="flex items-center gap-3">
-                    <span class="font-bold text-slate-300 text-lg w-4 text-center">${i+1}</span>
-                    <span class="text-sm font-medium text-slate-700">${p.nama}</span>
+                    <span class="font-bold text-slate-400 text-sm w-5 text-center">${i+1}.</span>
+                    <span class="text-sm font-medium text-slate-700">${escapeHtml(p.nama)}</span>
                 </div>
                 <span class="text-xs font-bold bg-teal-50 text-teal-600 px-2 py-1 rounded-md">${p.qty} Terjual</span>
             </div>
@@ -2243,7 +2328,8 @@ function exportLaporanToCSV() {
         return showToast("Tidak ada data laporan untuk diekspor", "info");
     }
 
-    let csvContent = "data:text/csv;charset=utf-8,";
+    // [FIX] Tambahkan BOM agar Excel bisa membaca karakter UTF-8 (Rupiah, dll) dengan benar
+    let csvContent = "data:text/csv;charset=utf-8,%EF%BB%BF";
     csvContent += "ID Transaksi,Tanggal,Waktu,SKU,Nama Produk,Jumlah,Harga Satuan,Subtotal\r\n";
 
     riwayat.forEach(trx => {
@@ -2338,6 +2424,25 @@ function resetAplikasi() {
     }
 }
 
+// [BARU] Fitur Bersihkan Data Lama
+function bersihkanDataLama() {
+    if(!confirm("Hapus riwayat transaksi yang lebih lama dari 30 hari untuk menghemat memori?")) return;
+    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const oldLength = riwayat.length;
+    riwayat = riwayat.filter(t => new Date(t.tanggal) > thirtyDaysAgo);
+    
+    if(riwayat.length < oldLength) {
+        localStorage.setItem('riwayat_transaksi', JSON.stringify(riwayat));
+        renderLaporan();
+        showToast(`Berhasil menghapus ${oldLength - riwayat.length} transaksi lama.`, "success");
+    } else {
+        showToast("Tidak ada data lama yang perlu dihapus.", "info");
+    }
+}
+
 function resetCart() { 
     if(cart.length > 0 && confirm("Kosongkan semua item di keranjang?")) {
         cart = []; 
@@ -2358,6 +2463,9 @@ window.onload = () => {
     bukaHalaman('dashboard');
 
     // renderCart(); // Tidak perlu render cart di awal
+    updateClock(); // Panggil sekali saat load
+    setInterval(updateClock, 1000); // Update tiap detik
+
     updateNetworkStatus(); // Panggil saat load
 
     // Tambahkan event listener untuk search dengan debounce
@@ -2431,8 +2539,8 @@ function renderHutang() {
     list.innerHTML = yangBerhutang.map(p => `
         <div class="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 mb-3 shadow-sm">
             <div>
-                <div class="font-bold text-slate-800 text-base">${p.nama}</div>
-                <div class="text-xs text-slate-500 mt-0.5">${p.nohp}</div>
+                <div class="font-bold text-slate-800 text-base">${escapeHtml(p.nama)}</div>
+                <div class="text-xs text-slate-500 mt-0.5">${escapeHtml(p.nohp)}</div>
             </div>
             <div class="text-right">
                 <div class="font-bold text-red-600 text-lg">Rp ${p.hutang.toLocaleString()}</div>
