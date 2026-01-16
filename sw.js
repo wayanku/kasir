@@ -1,7 +1,6 @@
 // File: /Users/user/kasir/sw.js
 
-const CACHE_NAME = 'kasir-pro-offline-v2110';
-const urlsToCache = [
+const CACHE_NAME = 'kasir-pro-offline-v211
   './',
   './index.html',
   './app.js',
