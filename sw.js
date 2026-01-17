@@ -1,6 +1,6 @@
 // File: /Users/user/kasir/sw.js
 
-const CACHE_NAME = 'kasir-pro-offline-v2340'; // Versi dinaikkan (PDF & Export Features)
+const CACHE_NAME = 'kasir-pro-offline-v33340'; // Versi dinaikkan (PDF & Export Features)
 const urlsToCache = [
   './',
   './index.html',
