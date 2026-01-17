@@ -1,11 +1,18 @@
 // File: /Users/user/kasir/sw.js
 
-const CACHE_NAME = 'kasir-pro-offline-v2327'; // Versi dinaikkan
+const CACHE_NAME = 'kasir-pro-offline-v228'; // Versi dinaikkan
 const urlsToCache = [
   './',
   './index.html',
   './app.js',
-  './absensi.js'
+  './absensi.js',
+  './manifest.json',
+  // [PENTING] Cache Library Eksternal agar kamera & style jalan Offline
+  'https://cdn.tailwindcss.com',
+  'https://unpkg.com/html5-qrcode',
+  'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js',
+  'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js',
+  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap'
 ];
 
 // Install Service Worker & Cache Resources
