@@ -389,14 +389,32 @@ async function startKamera() {
         return showToast("Gagal memuat modul kamera. Cek internet.", "error");
     }
 
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
     if (!scanner) {
-        scanner = new Html5Qrcode("reader", { verbose: false });
+        // [FIX] Khusus iPhone: Batasi format agar lebih ringan & akurat
+        if (isIOS) {
+            const formats = [
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E
+            ];
+            scanner = new Html5Qrcode("reader", { verbose: false, formatsToSupport: formats });
+        } else {
+            // Android: Pakai default (semua format) karena native detector-nya sudah canggih (bisa miring/terbalik)
+            scanner = new Html5Qrcode("reader", { verbose: false });
+        }
     }
     
     const config = { 
         fps: 30, // [OPTIMASI] FPS lebih tinggi agar responsif
         aspectRatio: undefined, // [FIX] Biarkan browser menentukan rasio terbaik (cegah kamera gelap di laptop)
-        qrbox: 250, // Kotak scan standar
+        // [FIX] iPhone: Persegi Panjang (Fokus 1D). Android: Persegi (Bebas Rotasi)
+        qrbox: isIOS ? { width: 250, height: 150 } : 250,
         experimentalFeatures: {
             useBarCodeDetectorIfSupported: true
         }
@@ -738,11 +756,30 @@ async function startKameraRetail() {
     }
 
     await stopSemuaKamera();
-    if (!scanner) scanner = new Html5Qrcode("reader-retail", { verbose: false });
+    
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (!scanner) {
+        if (isIOS) {
+            const formats = [
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E
+            ];
+            scanner = new Html5Qrcode("reader-retail", { verbose: false, formatsToSupport: formats });
+        } else {
+            scanner = new Html5Qrcode("reader-retail", { verbose: false });
+        }
+    }
     
     const config = { 
         fps: 30, // [OPTIMASI] Lebih responsif
         aspectRatio: undefined, // [FIX] Auto aspect ratio
+        qrbox: isIOS ? { width: 250, height: 150 } : 250, // [FIX] Sesuaikan kotak scan berdasarkan OS
         experimentalFeatures: {
             useBarCodeDetectorIfSupported: true
         }
