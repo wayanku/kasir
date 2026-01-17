@@ -1,14 +1,11 @@
 // File: /Users/user/kasir/sw.js
 
-const CACHE_NAME = 'kasir-pro-offline-v24';
+const CACHE_NAME = 'kasir-pro-offline-v2327'; // Versi dinaikkan
 const urlsToCache = [
   './',
   './index.html',
   './app.js',
-  'https://cdn.tailwindcss.com',
-  'https://unpkg.com/html5-qrcode',
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap',
-  'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js'
+  './absensi.js'
 ];
 
 // Install Service Worker & Cache Resources
