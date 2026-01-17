@@ -3,17 +3,20 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>KASIR PINTAR PRO</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Library Kamera & App -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; @apply bg-slate-50 text-slate-800 transition-colors duration-300; -webkit-tap-highlight-color: transparent; }
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            @apply bg-slate-50 text-slate-800 transition-colors duration-300; 
+            -webkit-tap-highlight-color: transparent;
+            /* Safe Area untuk iPhone berponi & HP modern */
+            padding-bottom: env(safe-area-inset-bottom);
+        }
         .page { display: none; }
         .page.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -154,6 +157,15 @@
         
         <!-- HALAMAN DASHBOARD (NEW) -->
         <div id="p-dashboard" class="page active space-y-6">
+            <!-- [BARU] Quick Actions Dashboard -->
+            <div class="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                <button onclick="bukaHalaman('kasir', 'retail')" class="flex-shrink-0 bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md hover:bg-teal-700 whitespace-nowrap">⚡ Kasir Cepat</button>
+                <button onclick="openModalTambahProduk()" class="flex-shrink-0 bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 whitespace-nowrap">+ Produk</button>
+                <button onclick="bukaHalaman('laporan')" class="flex-shrink-0 bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 whitespace-nowrap">📊 Laporan</button>
+                <button onclick="bukaHalaman('absensi')" class="flex-shrink-0 bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 whitespace-nowrap">📷 Absen</button>
+                <button onclick="bukaHalaman('pengeluaran')" class="flex-shrink-0 bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 whitespace-nowrap">💸 Catat Beban</button>
+            </div>
+
             <!-- SUPER APP MENU MODULES -->
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                 <!-- Modul Kasir -->
@@ -230,6 +242,7 @@
                     </div>
                 </div>
                 <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"><p class="text-sm font-medium text-slate-500 mb-1">Total Transaksi</p><h2 id="db-transaksi-hari-ini" class="text-2xl font-bold text-slate-800">0</h2></div>
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm"><p class="text-sm font-medium text-slate-500 mb-1">Total Piutang (Hutang Pelanggan)</p><h2 id="db-total-piutang" class="text-2xl font-bold text-red-500">Rp 0</h2></div>
             </div>
 
             <!-- [BARU] Widget Expired -->
@@ -485,26 +498,33 @@
         <!-- HALAMAN PENGELUARAN (NEW) -->
         <div id="p-pengeluaran" class="page space-y-6">
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-                <h3 class="font-bold text-xl text-slate-800 mb-4">Catat Pengeluaran Operasional</h3>
+                <h3 class="font-bold text-xl text-slate-800 mb-4">Catat Arus Kas (Cash Flow)</h3>
                 <div class="space-y-3">
-                    <input type="text" id="out-nama" placeholder="Nama Pengeluaran (Contoh: Listrik, Gaji)" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-500">
+                    <div class="flex gap-3">
+                        <select id="out-jenis" class="w-1/3 p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-teal-500 font-bold text-slate-700">
+                            <option value="keluar">🔴 Keluar</option>
+                            <option value="masuk">🟢 Masuk</option>
+                        </select>
+                        <input type="text" id="out-nama" placeholder="Keterangan (Contoh: Beli Bensin / Tambah Modal)" class="w-2/3 p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-teal-500">
+                    </div>
                     <input type="number" inputmode="numeric" id="out-nominal" placeholder="Nominal (Rp)" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-500">
                     <select id="out-kategori" class="w-full p-3 bg-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-rose-500">
                         <option value="Operasional">Operasional</option>
                         <option value="Gaji">Gaji Karyawan</option>
                         <option value="Stok">Belanja Stok</option>
+                        <option value="Modal">Modal Tambahan</option>
                         <option value="Lainnya">Lainnya</option>
                     </select>
-                    <button onclick="tambahPengeluaran()" class="w-full py-3 bg-rose-600 text-white rounded-xl font-bold shadow-lg hover:bg-rose-700 transition">Simpan Pengeluaran</button>
+                    <button onclick="tambahPengeluaran()" class="w-full py-3 bg-slate-800 text-white rounded-xl font-bold shadow-lg hover:bg-slate-900 transition">Simpan Data</button>
                 </div>
             </div>
 
             <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-                <h3 class="font-bold text-slate-800 mb-4">Riwayat Pengeluaran</h3>
+                <h3 class="font-bold text-slate-800 mb-4">Riwayat Arus Kas</h3>
                 <div id="list-pengeluaran" class="space-y-3 max-h-[400px] overflow-y-auto no-scrollbar">
                     <!-- List rendered here -->
                 </div>
-                <div id="empty-pengeluaran" class="text-center py-10 text-gray-400 hidden">Belum ada data pengeluaran</div>
+                <div id="empty-pengeluaran" class="text-center py-10 text-gray-400 hidden">Belum ada data arus kas</div>
             </div>
         </div>
 
@@ -548,6 +568,7 @@
                 <button onclick="bukaModalStokOpname()" class="bg-white p-3 rounded-xl text-indigo-600 shadow-sm border border-slate-100 hover:bg-indigo-50" title="Stok Opname">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
                 </button>
+                <button onclick="exportStokToCSV()" class="bg-white p-3 rounded-xl text-green-600 shadow-sm border border-slate-100 hover:bg-green-50" title="Download Excel/CSV"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button>
                 <select id="kategori-filter" onchange="renderStok()" class="bg-white shadow-sm border border-slate-100 text-slate-700 p-3 rounded-xl outline-none font-bold text-sm appearance-none flex-1 max-w-xs">
                     <!-- Options will be populated by JS -->
                 </select>
@@ -600,6 +621,10 @@
                     <button onclick="renderLaporan()" class="flex-1 bg-teal-600 text-white rounded-lg py-2.5 font-bold h-fit">Terapkan</button>
                     <button onclick="setLaporanHariIni()" class="bg-slate-100 text-slate-600 px-3 rounded-lg font-bold text-xs">Hari Ini</button>
                 </div>
+                <div class="flex gap-2 mt-2 sm:mt-0 col-span-1 sm:col-span-3 justify-end">
+                    <button onclick="exportLaporanToCSV()" class="bg-green-50 text-green-700 border border-green-200 px-3 py-2 rounded-lg text-xs font-bold hover:bg-green-100">Download Excel</button>
+                    <button onclick="exportLaporanToPDF()" class="bg-red-50 text-red-700 border border-red-200 px-3 py-2 rounded-lg text-xs font-bold hover:bg-red-100">Download PDF</button>
+                </div>
             </div>
         </div>
 
@@ -627,165 +652,269 @@
     </div>
 
     <!-- HALAMAN PENGATURAN -->
-    <div id="p-pengaturan" class="page p-4 max-w-4xl mx-auto space-y-6">
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
-            <h3 class="font-bold text-gray-800">Pengaturan</h3>
-
-            <!-- Voucher Management -->
-            <div class="p-4 bg-sky-50 rounded-xl space-y-3 border border-sky-100">
-                <h4 class="font-bold text-sm text-sky-900">Manajemen Voucher</h4>
-                <div class="flex flex-col sm:flex-row gap-2">
-                    <input type="text" id="voucher-code" placeholder="Kode Voucher (e.g. ULTAH)" class="w-full sm:flex-1 p-2 rounded-lg border border-sky-200 text-sm">
-                    <div class="flex gap-2 w-full sm:w-auto">
-                        <input type="number" id="voucher-value" placeholder="Nominal (Rp)" class="flex-1 sm:w-32 p-2 rounded-lg border border-sky-200 text-sm">
-                        <button onclick="tambahVoucher()" class="bg-sky-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-sky-700 shrink-0">Tambah</button>
-                    </div>
-                </div>
-                <div id="list-vouchers" class="space-y-2 mt-2">
-                    <!-- List Vouchers -->
-                </div>
+    <div id="p-pengaturan" class="page p-4 max-w-6xl mx-auto space-y-6 pb-24">
+        <div class="flex items-center gap-3 mb-2">
+            <div class="p-3 bg-white rounded-xl shadow-sm border border-slate-200">
+                <svg class="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             </div>
-
-            <!-- Member Level Management -->
-            <div class="p-4 bg-yellow-50 rounded-xl space-y-3 border border-yellow-100">
-                <h4 class="font-bold text-sm text-yellow-900">Pengaturan Level Member</h4>
-                <div class="space-y-2">
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-                        <label class="w-full sm:w-20 text-xs font-bold text-yellow-800">Silver</label>
-                        <div class="flex gap-2 w-full">
-                            <input type="number" id="level-silver-pts" class="w-1/2 sm:w-24 p-2 rounded-lg border border-yellow-200 text-sm" placeholder="Min. Poin">
-                            <input type="number" id="level-silver-disc" class="w-1/2 sm:flex-1 p-2 rounded-lg border border-yellow-200 text-sm" placeholder="Diskon (%)">
-                        </div>
-                    </div>
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-2">
-                        <label class="w-full sm:w-20 text-xs font-bold text-yellow-800">Gold</label>
-                        <div class="flex gap-2 w-full">
-                            <input type="number" id="level-gold-pts" class="w-1/2 sm:w-24 p-2 rounded-lg border border-yellow-200 text-sm" placeholder="Min. Poin">
-                            <input type="number" id="level-gold-disc" class="w-1/2 sm:flex-1 p-2 rounded-lg border border-yellow-200 text-sm" placeholder="Diskon (%)">
-                        </div>
-                    </div>
-                </div>
-                <button onclick="simpanLevelMember()" class="bg-yellow-500 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-yellow-600">Simpan Level</button>
-            </div>
-
-            <!-- Point Reward Config -->
-            <div class="p-4 bg-indigo-50 rounded-xl space-y-3 border border-indigo-100">
-                <h4 class="font-bold text-sm text-indigo-900">Pengaturan Poin Reward</h4>
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <span class="text-xs font-bold text-indigo-700">Dapat 1 Poin tiap kelipatan (Rp)</span>
-                    <input type="number" id="setting-point-multiplier" class="w-full sm:w-32 p-2 rounded-lg border border-indigo-200 text-sm" placeholder="10000">
-                </div>
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <span class="text-xs font-bold text-indigo-700">Nilai Tukar 1 Poin = (Rp)</span>
-                    <input type="number" id="setting-point-value" class="w-full sm:w-32 p-2 rounded-lg border border-indigo-200 text-sm" placeholder="1">
-                </div>
-                <button onclick="simpanPengaturanPoin()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700">Simpan Setting</button>
-            </div>
-
-            <!-- Profil Toko -->
-            <div class="p-4 bg-slate-50 rounded-xl space-y-3">
-                <h4 class="font-bold text-sm text-gray-700">Profil Toko (Untuk Struk)</h4>
-                <div>
-                    <label class="text-xs text-gray-500">Nama Toko</label>
-                    <input type="text" id="set-nama-toko" class="w-full p-2 rounded-lg border border-slate-200 text-sm font-bold" placeholder="Contoh: Toko Berkah">
-                </div>
-                <div>
-                    <label class="text-xs text-gray-500">Alamat</label>
-                    <input type="text" id="set-alamat-toko" class="w-full p-2 rounded-lg border border-slate-200 text-sm" placeholder="Alamat lengkap...">
-                </div>
-                <div>
-                    <label class="text-xs text-gray-500">No. Telepon</label>
-                    <input type="text" id="set-nohp-toko" class="w-full p-2 rounded-lg border border-slate-200 text-sm" placeholder="08...">
-                </div>
-                <div>
-                    <label class="text-xs text-gray-500">Pesan Footer Struk</label>
-                    <input type="text" id="set-footer-struk" class="w-full p-2 rounded-lg border border-slate-200 text-sm" placeholder="Terima Kasih...">
-                </div>
-                <div>
-                    <label class="text-xs text-gray-500">Info Pembayaran Digital (QRIS/Rekening)</label>
-                    <textarea id="set-info-bayar" class="w-full p-2 rounded-lg border border-slate-200 text-sm h-20" placeholder="BCA: 123456&#10;DANA: 0812..."></textarea>
-                </div>
-                <div class="pt-2 border-t border-slate-200 mt-2">
-                    <label class="text-xs text-gray-500 font-bold">Lokasi Toko (Anti-Curang GPS)</label>
-                    <div class="flex gap-2 mt-1">
-                        <input type="text" id="set-lokasi-coords" class="flex-1 p-2 rounded-lg border border-slate-200 text-xs bg-slate-100 font-mono" placeholder="Belum diset (Bebas Lokasi)" readonly>
-                        <button onclick="simpanLokasiToko()" class="bg-indigo-100 text-indigo-600 px-3 py-2 rounded-lg text-xs font-bold hover:bg-indigo-200 whitespace-nowrap">📍 Set Lokasi Saat Ini</button>
-                    </div>
-                    <p class="text-[10px] text-gray-400 mt-1">Karyawan wajib berada dalam radius 50m dari titik ini untuk absen.</p>
-                </div>
-                <button onclick="simpanProfilToko()" class="w-full bg-teal-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-teal-700">Simpan Profil</button>
-            </div>
-
-            <div id="install-prompt-container" class="p-4 bg-blue-50 rounded-xl flex-col sm:flex-row flex justify-between items-center gap-3 hidden">
-                <div>
-                    <div class="font-bold text-sm text-blue-700">Install Aplikasi</div>
-                    <div class="text-xs text-blue-400">Pasang aplikasi di layar utama untuk akses cepat dan offline.</div>
-                </div>
-                <button id="btn-install-app" onclick="promptInstall()" class="bg-blue-100 text-blue-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-200 w-full sm:w-auto">Install</button>
-            </div>
-            
-            <div class="p-4 bg-slate-50 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div>
-                    <div class="font-bold text-sm text-gray-700">Backup Data</div>
-                    <div class="text-xs text-gray-400">Simpan database ke file JSON</div>
-                </div>
-                <button onclick="backupData()" class="w-full sm:w-auto bg-teal-50 text-teal-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-teal-100">Download</button>
-            </div>
-
-            <div class="p-4 bg-slate-50 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div>
-                    <div class="font-bold text-sm text-gray-700">Pajak / PPN (%)</div>
-                    <div class="text-xs text-gray-400">Otomatis ditambahkan ke total</div>
-                </div>
-                <input type="number" inputmode="numeric" id="setting-pajak" onchange="simpanSettingPajak(this.value)" class="w-full sm:w-24 p-2 bg-white border border-slate-200 rounded-lg text-center font-bold outline-none focus:ring-2 focus:ring-teal-500" placeholder="0">
-            </div>
-
-            <!-- Happy Hour Config -->
-            <div class="p-4 bg-purple-50 rounded-xl space-y-3 border border-purple-100">
-                <h4 class="font-bold text-sm text-purple-900">Diskon Otomatis (Happy Hour)</h4>
-                <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
-                    <div class="flex items-center gap-2 w-full sm:w-auto">
-                        <input type="time" id="hh-start" class="flex-1 sm:w-auto p-2 rounded-lg border border-purple-200 text-sm">
-                    <span class="text-xs text-purple-400">s/d</span>
-                        <input type="time" id="hh-end" class="flex-1 sm:w-auto p-2 rounded-lg border border-purple-200 text-sm">
-                    </div>
-                </div>
-                <div class="flex gap-2 items-center justify-between sm:justify-start">
-                    <span class="text-xs font-bold text-purple-700">Diskon (%)</span>
-                    <input type="number" id="hh-percent" class="w-24 p-2 rounded-lg border border-purple-200 text-sm" placeholder="0">
-                </div>
-                <button onclick="simpanHappyHour()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-700">Simpan Setting</button>
-            </div>
-
-            <div class="p-4 bg-slate-50 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div>
-                    <div class="font-bold text-sm text-gray-700">Restore Data</div>
-                    <div class="text-xs text-gray-400">Kembalikan data dari file</div>
-                </div>
-                <label class="w-full sm:w-auto bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer hover:bg-blue-100 text-center">
-                    Upload
-                    <input type="file" id="file-restore" onchange="restoreData(this)" class="hidden" accept=".json">
-                </label>
-            </div>
-
-            <div class="p-4 bg-orange-50 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div>
-                    <div class="font-bold text-sm text-orange-700">Optimasi Penyimpanan</div>
-                    <div class="text-xs text-orange-400">Hapus transaksi > 30 hari</div>
-                </div>
-                <button onclick="bersihkanDataLama()" class="w-full sm:w-auto bg-orange-100 text-orange-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-orange-200">Bersihkan</button>
-            </div>
-
-            <div class="p-4 bg-red-50 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div>
-                    <div class="font-bold text-sm text-red-700">Reset Aplikasi</div>
-                    <div class="text-xs text-red-400">Hapus semua data permanen</div>
-                </div>
-                <button onclick="resetAplikasi()" class="w-full sm:w-auto bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-200">Reset</button>
+            <div>
+                <h3 class="font-bold text-xl text-slate-800">Pengaturan</h3>
+                <p class="text-sm text-slate-500">Kelola toko, promosi, dan data aplikasi.</p>
             </div>
         </div>
-        <div class="text-center text-xs text-gray-400">
-            Versi 3.0.0 - KasirPintar Pro
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- KOLOM KIRI: TOKO & TRANSAKSI -->
+            <div class="space-y-6">
+                <!-- Profil Toko -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                    <h4 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-teal-500 rounded-full"></span> Profil Toko
+                    </h4>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 mb-1 block">Nama Toko</label>
+                                <input type="text" id="set-nama-toko" class="w-full p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none" placeholder="Contoh: Toko Berkah">
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-500 mb-1 block">No. Telepon</label>
+                                <input type="text" id="set-nohp-toko" class="w-full p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="08...">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 mb-1 block">Alamat</label>
+                            <input type="text" id="set-alamat-toko" class="w-full p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="Alamat lengkap...">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-500 mb-1 block">Footer Struk</label>
+                            <input type="text" id="set-footer-struk" class="w-full p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="Terima Kasih...">
+                        </div>
+                        
+                        <div class="pt-4 border-t border-slate-100">
+                            <label class="text-xs font-bold text-slate-500 mb-2 block">Info Pembayaran (QRIS/Rekening)</label>
+                            <div class="flex flex-col sm:flex-row gap-4">
+                                <div class="flex-shrink-0">
+                                    <div class="relative group w-24 h-24">
+                                        <img id="set-qris-preview" src="https://via.placeholder.com/100?text=QRIS" class="w-24 h-24 object-cover rounded-lg border border-slate-200 bg-white">
+                                        <button onclick="hapusQris()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600" title="Hapus QRIS">✕</button>
+                                    </div>
+                                    <label class="mt-2 block text-center">
+                                        <span class="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded cursor-pointer hover:bg-teal-100">Upload</span>
+                                        <input type="file" id="file-qris" accept="image/*" onchange="handleQrisUpload(event)" class="hidden">
+                                    </label>
+                                </div>
+                                <textarea id="set-info-bayar" class="flex-1 p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-sm h-24 focus:ring-2 focus:ring-teal-500 outline-none resize-none" placeholder="BCA: 123456&#10;DANA: 0812..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 border-t border-slate-100">
+                            <label class="text-xs font-bold text-slate-500 mb-1 block">Lokasi Toko (Geofencing Absensi)</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="set-lokasi-coords" class="flex-1 p-2.5 rounded-lg border border-slate-200 text-xs bg-slate-100 font-mono text-slate-500" placeholder="Belum diset (Bebas Lokasi)" readonly>
+                                <button onclick="simpanLokasiToko()" class="bg-indigo-50 text-indigo-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-100 whitespace-nowrap border border-indigo-100">📍 Set Lokasi</button>
+                            </div>
+                        </div>
+
+                        <button onclick="simpanProfilToko()" class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold text-sm hover:bg-slate-900 shadow-lg shadow-slate-200 transition">Simpan Profil Toko</button>
+                    </div>
+                </div>
+
+                <!-- Pajak -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex items-center justify-between gap-4">
+                    <div>
+                        <h4 class="font-bold text-slate-800">Pajak / PPN</h4>
+                        <p class="text-xs text-slate-400">Persentase pajak per transaksi</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="number" inputmode="numeric" id="setting-pajak" onchange="simpanSettingPajak(this.value)" class="w-20 p-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-bold outline-none focus:ring-2 focus:ring-teal-500" placeholder="0">
+                        <span class="font-bold text-slate-500">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KOLOM KANAN: PROMOSI & MEMBER -->
+            <div class="space-y-6">
+                <!-- Member & Poin -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                    <h4 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-yellow-500 rounded-full"></span> Member & Poin
+                    </h4>
+                    
+                    <!-- Level Member -->
+                    <div class="space-y-3 mb-6">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Level Member</label>
+                        <div class="grid grid-cols-1 gap-3">
+                            <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                <div class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white font-bold text-xs">S</div>
+                                <div class="flex-1 grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="text-[10px] text-slate-400 block">Min. Poin</label>
+                                        <input type="number" id="level-silver-pts" class="w-full p-1.5 bg-white rounded border border-slate-200 text-sm font-bold" placeholder="0">
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] text-slate-400 block">Diskon %</label>
+                                        <input type="number" id="level-silver-disc" class="w-full p-1.5 bg-white rounded border border-slate-200 text-sm font-bold" placeholder="0">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 p-3 bg-yellow-50 rounded-xl border border-yellow-100">
+                                <div class="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center text-white font-bold text-xs">G</div>
+                                <div class="flex-1 grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="text-[10px] text-yellow-600 block">Min. Poin</label>
+                                        <input type="number" id="level-gold-pts" class="w-full p-1.5 bg-white rounded border border-yellow-200 text-sm font-bold" placeholder="0">
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] text-yellow-600 block">Diskon %</label>
+                                        <input type="number" id="level-gold-disc" class="w-full p-1.5 bg-white rounded border border-yellow-200 text-sm font-bold" placeholder="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="simpanLevelMember()" class="w-full py-2 bg-yellow-100 text-yellow-700 rounded-lg text-xs font-bold hover:bg-yellow-200">Simpan Level</button>
+                    </div>
+
+                    <!-- Konfigurasi Poin -->
+                    <div class="space-y-3 pt-4 border-t border-slate-100">
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Konfigurasi Poin</label>
+                        <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <span class="text-xs font-medium text-slate-600">Dapat 1 Poin tiap belanja</span>
+                            <div class="flex items-center gap-1">
+                                <span class="text-xs text-slate-400">Rp</span>
+                                <input type="number" id="setting-point-multiplier" class="w-20 p-1 bg-white border border-slate-200 rounded text-right text-sm font-bold" placeholder="10000">
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <span class="text-xs font-medium text-slate-600">Nilai Tukar 1 Poin</span>
+                            <div class="flex items-center gap-1">
+                                <span class="text-xs text-slate-400">Rp</span>
+                                <input type="number" id="setting-point-value" class="w-20 p-1 bg-white border border-slate-200 rounded text-right text-sm font-bold" placeholder="1">
+                            </div>
+                        </div>
+                        <button onclick="simpanPengaturanPoin()" class="w-full py-2 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-200">Simpan Poin</button>
+                    </div>
+                </div>
+
+                <!-- Promosi (Voucher & Happy Hour) -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                    <h4 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-purple-500 rounded-full"></span> Promosi
+                    </h4>
+
+                    <!-- Happy Hour -->
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Happy Hour (Diskon Otomatis)</label>
+                        </div>
+                        <div class="bg-purple-50 p-3 rounded-xl border border-purple-100 space-y-3">
+                            <div class="flex items-center gap-2">
+                                <input type="time" id="hh-start" class="flex-1 p-2 bg-white border border-purple-200 rounded-lg text-sm font-bold text-center">
+                                <span class="text-purple-400 font-bold">-</span>
+                                <input type="time" id="hh-end" class="flex-1 p-2 bg-white border border-purple-200 rounded-lg text-sm font-bold text-center">
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="hh-percent" class="flex-1 p-2 bg-white border border-purple-200 rounded-lg text-sm font-bold text-center" placeholder="Diskon %">
+                                <button onclick="simpanHappyHour()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-purple-700">Simpan</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Voucher -->
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Voucher Belanja</label>
+                        <div class="flex gap-2 mb-3">
+                            <input type="text" id="voucher-code" placeholder="KODE" class="w-1/3 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold uppercase">
+                            <input type="number" id="voucher-value" placeholder="Nominal (Rp)" class="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold">
+                            <button onclick="tambahVoucher()" class="bg-sky-600 text-white px-3 rounded-lg font-bold hover:bg-sky-700">+</button>
+                        </div>
+                        <div id="list-vouchers" class="space-y-2 max-h-32 overflow-y-auto custom-scrollbar bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <!-- List Vouchers -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- TAMPILAN & PERFORMA -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <h4 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="w-1 h-6 bg-indigo-500 rounded-full"></span> Tampilan & Performa
+                </h4>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h5 class="font-bold text-slate-700 text-sm">Mode Hemat Daya (Lite)</h5>
+                        <p class="text-xs text-slate-400">Matikan animasi & blur untuk performa lebih cepat.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="setting-lite-mode" onchange="toggleLiteMode(this.checked)" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM: DATA & SYSTEM -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+            <h4 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                <span class="w-1 h-6 bg-slate-500 rounded-full"></span> Data & Sistem
+            </h4>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Backup -->
+                <div class="p-4 rounded-xl border border-slate-200 hover:border-teal-300 transition group cursor-pointer" onclick="backupData()">
+                    <div class="w-10 h-10 bg-teal-50 text-teal-600 rounded-lg flex items-center justify-center mb-2 group-hover:scale-110 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    </div>
+                    <h5 class="font-bold text-slate-700 text-sm">Backup Data</h5>
+                    <p class="text-xs text-slate-400 mt-1">Download database JSON</p>
+                </div>
+
+                <!-- Restore -->
+                <label class="p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition group cursor-pointer relative">
+                    <input type="file" id="file-restore" onchange="restoreData(this)" class="hidden" accept=".json">
+                    <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-2 group-hover:scale-110 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m-4-4v12"/></svg>
+                    </div>
+                    <h5 class="font-bold text-slate-700 text-sm">Restore Data</h5>
+                    <p class="text-xs text-slate-400 mt-1">Upload file backup</p>
+                </label>
+
+                <!-- Optimize -->
+                <div class="p-4 rounded-xl border border-slate-200 hover:border-orange-300 transition group cursor-pointer" onclick="bersihkanDataLama()">
+                    <div class="w-10 h-10 bg-orange-50 text-orange-600 rounded-lg flex items-center justify-center mb-2 group-hover:scale-110 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </div>
+                    <h5 class="font-bold text-slate-700 text-sm">Bersihkan Data</h5>
+                    <p class="text-xs text-slate-400 mt-1">Hapus transaksi lama</p>
+                </div>
+
+                <!-- Reset -->
+                <div class="p-4 rounded-xl border border-slate-200 hover:border-red-300 transition group cursor-pointer" onclick="resetAplikasi()">
+                    <div class="w-10 h-10 bg-red-50 text-red-600 rounded-lg flex items-center justify-center mb-2 group-hover:scale-110 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </div>
+                    <h5 class="font-bold text-slate-700 text-sm">Reset Aplikasi</h5>
+                    <p class="text-xs text-slate-400 mt-1">Hapus semua data</p>
+                </div>
+            </div>
+
+            <!-- Install Prompt (Hidden by default) -->
+            <div id="install-prompt-container" class="mt-4 p-4 bg-blue-50 rounded-xl flex justify-between items-center hidden border border-blue-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    </div>
+                    <div>
+                        <h5 class="font-bold text-blue-800 text-sm">Install Aplikasi</h5>
+                        <p class="text-xs text-blue-600">Pasang untuk akses offline lebih cepat.</p>
+                    </div>
+                </div>
+                <button onclick="promptInstall()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 shadow-lg shadow-blue-200">Install</button>
+            </div>
+        </div>
+
+        <div class="text-center text-xs text-gray-400 pt-6">
+            Versi 3.1.0 - KasirPintar Pro
         </div>
     </div>
 
@@ -846,7 +975,7 @@
 
     <!-- MODAL BAYAR (PROFESSIONAL) -->
     <div id="modal-bayar" class="fixed inset-0 bg-black/60 z-[100] hidden flex items-end sm:items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-md shadow-2xl animate-slideUp sm:animate-[scaleIn_0.2s_ease-out]">
+        <div class="bg-white rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 w-full max-w-md shadow-2xl animate-slideUp sm:animate-[scaleIn_0.2s_ease-out] max-h-[90vh] overflow-y-auto no-scrollbar">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="font-bold text-xl text-gray-800">Pembayaran</h3>
                 <button onclick="tutupModalBayar()" class="text-gray-400 hover:text-gray-800">✕</button>
@@ -905,9 +1034,11 @@
             </div>
 
             <!-- Info Pembayaran Digital (Hidden by default) -->
-            <div id="box-info-bayar" class="hidden bg-blue-50 p-3 rounded-xl mb-4 border border-blue-100">
+            <div id="box-info-bayar" class="hidden bg-blue-50 p-3 rounded-xl mb-4 border border-blue-100 text-center">
                 <p class="text-[10px] font-bold text-blue-500 mb-1">INFO PEMBAYARAN:</p>
-                <p id="text-info-bayar" class="text-xs text-slate-700 whitespace-pre-line font-mono"></p>
+                <!-- [BARU] QRIS Image -->
+                <img id="img-qris-display" class="w-48 h-48 object-contain mx-auto mb-2 bg-white rounded-lg border border-slate-200 hidden">
+                <p id="text-info-bayar" class="text-xs text-slate-700 whitespace-pre-line font-mono text-left"></p>
             </div>
 
             <div class="space-y-4 mb-8">
@@ -1160,6 +1291,10 @@
                 <div class="flex justify-between text-sm">
                     <span class="text-slate-500">Penjualan Tunai</span>
                     <span class="font-bold text-emerald-600" id="shift-info-masuk">Rp 0</span>
+                </div>
+                <div class="flex justify-between text-sm hidden" id="row-masuk-lain">
+                    <span class="text-slate-500">Kas Masuk Lain</span>
+                    <span class="font-bold text-emerald-600" id="shift-info-masuk-lain">Rp 0</span>
                 </div>
                 <div class="flex justify-between text-sm">
                     <span class="text-slate-500">Pengeluaran Tunai</span>
