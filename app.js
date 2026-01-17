@@ -17,6 +17,9 @@ let riwayat = JSON.parse(localStorage.getItem('riwayat_transaksi')) || [];
 let pelanggan = JSON.parse(localStorage.getItem('pelanggan_data')) || [];
 let pendingCarts = JSON.parse(localStorage.getItem('pending_carts')) || [];
 let stockLog = JSON.parse(localStorage.getItem('stock_log')) || [];
+let stokOpnameLog = JSON.parse(localStorage.getItem('stok_opname_log')) || []; // [BARU] Log Stok Opname
+let activeShift = JSON.parse(localStorage.getItem('active_shift')) || null; // [BARU] Shift Aktif
+let shiftLog = JSON.parse(localStorage.getItem('shift_log')) || []; // [BARU] Riwayat Shift
 let users = JSON.parse(localStorage.getItem('app_users')) || [
     { id: 'OWNER', nama: 'Owner', role: 'admin', pin: '123456' },
     { id: 'KASIR', nama: 'Kasir', role: 'kasir', pin: '1234' }
@@ -25,7 +28,8 @@ let currentUser = JSON.parse(sessionStorage.getItem('logged_user')) || null;
 let absensiLog = JSON.parse(localStorage.getItem('absensi_log')) || []; // [BARU] Log Absensi
 let pengeluaran = JSON.parse(localStorage.getItem('pengeluaran_data')) || []; // [BARU] Data Pengeluaran
 let vouchers = JSON.parse(localStorage.getItem('vouchers_data')) || []; // [BARU] Data Voucher
-let settings = JSON.parse(localStorage.getItem('app_settings')) || { targetOmzet: 500000, memberLevels: { silver: { pts: 100, disc: 5 }, gold: { pts: 500, disc: 10 } } }; // [BARU] App Settings
+let settings = JSON.parse(localStorage.getItem('app_settings')) || { targetOmzet: 500000, pointMultiplier: 10000, pointExchangeValue: 1, memberLevels: { silver: { pts: 100, disc: 5 }, gold: { pts: 500, disc: 10 } } }; // [BARU] App Settings
+if(!settings.pointExchangeValue) settings.pointExchangeValue = 1; // Default backward compatibility
 let mejaData = JSON.parse(localStorage.getItem('meja_data')) || Array.from({length: 9}, (_, i) => ({ id: i+1, status: 'kosong', pesanan: [] })); // [BARU] Data Meja (Default 9 meja)
 let activeTableId = null; // Meja yang sedang aktif/dipilih
 let cart = JSON.parse(localStorage.getItem('current_cart')) || []; // [BARU] Load cart dari storage
@@ -504,7 +508,10 @@ function bukaHalaman(nama, mode = null) {
     }
 
     if(nama === 'absensi') {
-        startKameraAbsensi();
+        // [FIX] Panggil fungsi dari absensi.js untuk memuat model AI
+        if(typeof initAbsensiSystem === 'function') {
+            initAbsensiSystem();
+        }
         renderRiwayatAbsensi();
     }
 
@@ -544,6 +551,12 @@ function bukaHalaman(nama, mode = null) {
         document.getElementById('level-silver-disc').value = settings.memberLevels.silver.disc;
         document.getElementById('level-gold-pts').value = settings.memberLevels.gold.pts;
         document.getElementById('level-gold-disc').value = settings.memberLevels.gold.disc;
+        document.getElementById('setting-point-multiplier').value = settings.pointMultiplier || 10000;
+        document.getElementById('setting-point-value').value = settings.pointExchangeValue || 1;
+        // Load Lokasi
+        if(profilToko.lokasi) {
+            document.getElementById('set-lokasi-coords').value = `${profilToko.lokasi.lat.toFixed(6)}, ${profilToko.lokasi.lng.toFixed(6)}`;
+        }
     }
 }
 
@@ -677,9 +690,9 @@ function doSearch(val) {
     if(filtered.length === 0) { res.innerHTML = "<p class='text-center text-gray-400 mt-8'>Tidak ditemukan.</p>"; return; }
 
     res.innerHTML = filtered.map(p => `
-        <div onclick="tambahKeCart('${p.sku}'); toggleSearch();" class="flex justify-between items-center cursor-pointer hover:bg-teal-50 dark:hover:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-700 transition-colors">
+        <div onclick="tambahKeCart('${p.sku}'); toggleSearch();" class="flex justify-between items-center cursor-pointer hover:bg-teal-50 p-3 rounded-xl border border-slate-100 transition-colors">
             <div>
-                <b class="text-slate-800 dark:text-slate-200">${escapeHtml(p.nama)}</b><br>
+                <b class="text-slate-800">${escapeHtml(p.nama)}</b><br>
                 <small class="text-gray-500">${escapeHtml(p.sku)} ${p.kategori ? '• ' + escapeHtml(p.kategori) : ''}</small>
             </div>
             <div class="text-teal-600 font-bold">Rp ${parseInt(p.harga).toLocaleString()}</div>
@@ -700,6 +713,7 @@ function openModalTambahProduk(skuToEdit = null) {
     document.getElementById('f-modal').value = ''; // Reset modal
     document.getElementById('f-kategori').value = '';
     document.getElementById('f-stok').value = '';
+    document.getElementById('f-expired').value = ''; // [BARU] Reset expired
     document.getElementById('f-sku').disabled = false;
     document.getElementById('f-gambar-preview').src = 'https://via.placeholder.com/150x150.png?text=Pilih+Gambar';
     tempImageData = null;
@@ -713,6 +727,7 @@ function openModalTambahProduk(skuToEdit = null) {
             document.getElementById('f-modal').value = produk.modal || ''; // Load modal
             document.getElementById('f-kategori').value = produk.kategori || '';
             document.getElementById('f-stok').value = produk.stok;
+            document.getElementById('f-expired').value = produk.expiredDate || ''; // [BARU] Load expired
             document.getElementById('f-sku').disabled = true; // SKU tidak bisa diubah
             if (produk.gambar) {
                 document.getElementById('f-gambar-preview').src = produk.gambar;
@@ -744,6 +759,7 @@ function simpanProduk() {
     const kategori = document.getElementById('f-kategori').value.trim();
     const stok = parseInt(document.getElementById('f-stok').value) || 0;
     const gambar = tempImageData;
+    const expiredDate = document.getElementById('f-expired').value; // [BARU] Ambil tanggal
 
     if(!sku || !nama) return showToast("Data SKU dan Nama wajib diisi!", "error");
     if(harga < 0 || modal < 0 || stok < 0) return showToast("Harga, Modal, dan Stok tidak boleh negatif!", "error");
@@ -751,9 +767,9 @@ function simpanProduk() {
     const index = gudang.findIndex(p => p.sku === sku);
     if(index > -1) {
         logStockChange(sku, nama, parseInt(stok) - gudang[index].stok, 'Edit Manual');
-        gudang[index] = {sku, nama, harga, modal, kategori, stok, gambar};
+        gudang[index] = {sku, nama, harga, modal, kategori, stok, gambar, expiredDate};
     } else {
-        gudang.push({sku, nama, harga, modal, kategori, stok, gambar});
+        gudang.push({sku, nama, harga, modal, kategori, stok, gambar, expiredDate});
         logStockChange(sku, nama, stok, 'Produk Baru');
     }
 
@@ -788,13 +804,9 @@ document.addEventListener('click', function unlockAudio() {
 // LOGIK SCAN KASIR BARU
 function handleScanKasir(sku) {
     const produk = gudang.find(p => p.sku === sku);
-    if(!produk) {
-        tempSku = sku;
-        document.getElementById('txt-unknown-sku').innerText = sku;
-        document.getElementById('modal-unknown').classList.remove('hidden');
-        document.getElementById('modal-unknown').classList.add('flex');
-        if(scanner) try { scanner.pause(); } catch(e){}
-    } else {
+    
+    // 1. Jika Produk Ditemukan
+    if (produk) {
         ucapkan(produk.nama);
         if (kasirMode === 'retail') {
             if(tambahKeCartCore(produk)) {
@@ -809,6 +821,35 @@ function handleScanKasir(sku) {
             });
             renderTempCart();
         }
+        return;
+    }
+
+    // 2. Jika Bukan Produk, Cek Apakah Member?
+    const member = pelanggan.find(p => p.id === sku || p.nohp === sku);
+    if (member) {
+        const selectPel = document.getElementById('pilih-pelanggan');
+        if (selectPel) {
+            selectPel.value = member.id;
+            showToast(`Member Terdeteksi: ${member.nama}`, 'success');
+            SoundFX.play('success');
+            ucapkan(`Halo ${member.nama}`);
+            
+            // Jika modal bayar sedang terbuka, update hitungan (diskon member)
+            if(!document.getElementById('modal-bayar').classList.contains('hidden')) {
+                cekPoinPelanggan();
+                hitungTotalBayar();
+            }
+        }
+        return;
+    }
+
+    // 3. Jika Tidak Dikenal (Bukan Produk & Bukan Member)
+    if(!produk && !member) {
+        tempSku = sku;
+        document.getElementById('txt-unknown-sku').innerText = sku;
+        document.getElementById('modal-unknown').classList.remove('hidden');
+        document.getElementById('modal-unknown').classList.add('flex');
+        if(scanner) try { scanner.pause(); } catch(e){}
     }
 }
 
@@ -823,9 +864,9 @@ function renderTempCart() {
     
     area.classList.remove('hidden');
     list.innerHTML = tempCart.map((item, i) => `
-        <div class="flex justify-between items-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-teal-100 dark:border-slate-700 temp-item shadow-sm">
-            <div>
-                <div class="font-bold text-sm text-teal-900 dark:text-teal-400">${escapeHtml(item.nama)}</div>
+        <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-teal-100 temp-item shadow-sm">
+            <div class="flex-1 min-w-0 pr-2">
+                <div class="font-bold text-sm text-teal-900 truncate">${escapeHtml(item.nama)}</div>
                 <div class="text-[10px] text-gray-400">${escapeHtml(item.sku)}</div>
             </div>
             <div class="flex items-center gap-3">
@@ -933,14 +974,14 @@ function renderCart() {
         list.innerHTML = cart.map((item, i) => {
             const hargaSetelahDiskon = item.harga - (item.diskon || 0);
             return `
-                <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border border-slate-100 dark:border-slate-600 shadow-sm transition-all">
-                    <div onclick="openModalEditItem(${i})" class="cursor-pointer flex-1">
-                        <div class="font-bold text-gray-800 dark:text-slate-200">${escapeHtml(item.nama)}</div>
-                        <div class="text-xs text-teal-600 dark:text-teal-400 font-bold mt-1">Rp ${hargaSetelahDiskon.toLocaleString()} ${item.diskon > 0 ? `<span class="text-red-400 line-through ml-1 text-[10px]">${item.harga.toLocaleString()}</span>` : ''}</div>
+                <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100 shadow-sm transition-all">
+                    <div onclick="openModalEditItem(${i})" class="cursor-pointer flex-1 min-w-0 pr-2">
+                        <div class="font-bold text-gray-800 truncate">${escapeHtml(item.nama)}</div>
+                        <div class="text-xs text-teal-600 font-bold mt-1">Rp ${hargaSetelahDiskon.toLocaleString()} ${item.diskon > 0 ? `<span class="text-red-400 line-through ml-1 text-[10px]">${item.harga.toLocaleString()}</span>` : ''}</div>
                     </div>
                     <div class="flex items-center gap-3">
-                        <button onclick="updateQty(${i}, -1)" class="w-7 h-7 bg-white dark:bg-slate-600 rounded-full shadow-sm text-slate-600 dark:text-white font-bold border border-slate-200 dark:border-slate-500 hover:bg-slate-100 dark:hover:bg-slate-500 flex items-center justify-center">-</button>
-                        <span class="font-bold text-gray-800 dark:text-white w-6 text-center">${item.qty}</span>
+                        <button onclick="updateQty(${i}, -1)" class="w-7 h-7 bg-white rounded-full shadow-sm text-slate-600 font-bold border border-slate-200 hover:bg-slate-100 flex items-center justify-center">-</button>
+                        <span class="font-bold text-gray-800 w-6 text-center">${item.qty}</span>
                         <button onclick="updateQty(${i}, 1)" class="w-7 h-7 bg-teal-600 text-white rounded-full shadow-md font-bold hover:bg-teal-700 flex items-center justify-center">+</button>
                         <button onclick="hapusItemCart(${i})" class="text-red-400 hover:text-red-600 ml-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                     </div>
@@ -1030,9 +1071,9 @@ function bukaModalPending() {
     } else {
         empty.classList.add('hidden');
         list.innerHTML = pendingCarts.map((p, i) => `
-            <div class="bg-slate-50 dark:bg-slate-700 p-3 rounded-xl border border-slate-100 dark:border-slate-600 flex justify-between items-center">
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
                 <div onclick="recallCart(${i})" class="cursor-pointer flex-1">
-                    <div class="font-bold text-slate-800 dark:text-white">${escapeHtml(p.note)}</div>
+                    <div class="font-bold text-slate-800">${escapeHtml(p.note)}</div>
                     <div class="text-xs text-slate-500">${new Date(p.date).toLocaleTimeString('id-ID')} • ${p.items.length} Item</div>
                 </div>
                 <button onclick="hapusPending(${i})" class="text-red-500 p-2 hover:bg-red-50 rounded-lg">✕</button>
@@ -1144,8 +1185,8 @@ function renderSplitList() {
         
         return `
         <div onclick="toggleSplitItem(${i})" class="flex justify-between items-center p-3 rounded-xl border cursor-pointer transition ${isSelected ? 'bg-teal-50 border-teal-500 ring-1 ring-teal-500' : 'bg-white border-slate-200'}">
-            <div>
-                <div class="font-bold text-sm text-slate-800">${escapeHtml(item.nama)}</div>
+            <div class="flex-1 min-w-0 pr-2">
+                <div class="font-bold text-sm text-slate-800 truncate">${escapeHtml(item.nama)}</div>
                 <div class="text-xs text-slate-500">${item.qty} x ${item.harga.toLocaleString()}</div>
             </div>
             <div class="font-bold text-teal-600">Rp ${sub.toLocaleString()}</div>
@@ -1212,10 +1253,10 @@ function renderStok() {
         : gudang.filter(p => p.kategori === filterKategori);
 
     const renderedItems = produkToShow.slice(0, stokLimit).sort((a, b) => a.nama.localeCompare(b.nama)).map(p => `
-        <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm flex justify-between items-center cursor-pointer hover:shadow-md transition-shadow" onclick="openModalTambahProduk('${p.sku}')">
+        <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center cursor-pointer hover:shadow-md transition-shadow" onclick="openModalTambahProduk('${p.sku}')">
             <img src="${p.gambar || 'https://via.placeholder.com/80x80.png?text=No+Image'}" class="w-16 h-16 object-cover rounded-lg mr-4 bg-slate-100">
             <div class="flex-1 cursor-pointer" onclick="openModalTambahProduk('${p.sku}')">
-                <div class="font-bold text-gray-800 dark:text-slate-200 text-base">${escapeHtml(p.nama)}</div>
+                <div class="font-bold text-gray-800 text-base">${escapeHtml(p.nama)}</div>
                 <div class="flex items-center gap-2 mt-1">
                     <div class="text-xs text-gray-400 font-mono">${escapeHtml(p.sku)}</div>
                     <div class="text-xs font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded">${formatRupiah(p.harga)}</div>
@@ -1317,6 +1358,89 @@ function tutupModalRiwayatStok() {
     document.getElementById('modal-riwayat-stok').classList.remove('flex');
 }
 
+// [BARU] FITUR STOK OPNAME
+function bukaModalStokOpname() {
+    const list = document.getElementById('list-opname-items');
+    // Render semua produk untuk opname
+    // Tips: Jika produk ribuan, sebaiknya tambahkan filter kategori di modal ini. Untuk sekarang kita render semua.
+    list.innerHTML = gudang.sort((a,b) => a.nama.localeCompare(b.nama)).map((p, i) => `
+        <div class="flex items-center justify-between p-3 border-b border-slate-100 text-sm hover:bg-slate-50">
+            <div class="flex-1 pr-2">
+                <div class="font-bold text-slate-700">${escapeHtml(p.nama)}</div>
+                <div class="text-xs text-slate-400 font-mono">${p.sku}</div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="text-center w-16 bg-slate-100 rounded p-1">
+                    <div class="text-[9px] text-slate-400 uppercase">Sistem</div>
+                    <div class="font-bold text-slate-600">${p.stok}</div>
+                </div>
+                <div class="w-24">
+                    <input type="number" data-sku="${p.sku}" data-system="${p.stok}" class="input-opname w-full p-2 border border-slate-300 rounded-lg text-center font-bold outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500" placeholder="${p.stok}">
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    document.getElementById('modal-stok-opname').classList.remove('hidden');
+    document.getElementById('modal-stok-opname').classList.add('flex');
+}
+
+function tutupModalStokOpname() {
+    document.getElementById('modal-stok-opname').classList.add('hidden');
+    document.getElementById('modal-stok-opname').classList.remove('flex');
+}
+
+function simpanStokOpname() {
+    const inputs = document.querySelectorAll('.input-opname');
+    const adjustments = [];
+    let changeCount = 0;
+
+    inputs.forEach(input => {
+        const sku = input.dataset.sku;
+        const systemStok = parseInt(input.dataset.system);
+        // Jika kosong, anggap sesuai sistem (tidak ada perubahan)
+        if (input.value === '') return;
+        
+        const fisikStok = parseInt(input.value);
+        if (fisikStok !== systemStok) {
+            const diff = fisikStok - systemStok;
+            const produk = gudang.find(p => p.sku === sku);
+            if (produk) {
+                produk.stok = fisikStok;
+                logStockChange(sku, produk.nama, diff, 'Stok Opname');
+                adjustments.push({ sku, nama: produk.nama, system: systemStok, fisik: fisikStok, diff });
+                changeCount++;
+            }
+        }
+    });
+
+    if (changeCount > 0) {
+        stokOpnameLog.unshift({
+            id: 'OPN-' + Date.now(),
+            tanggal: new Date().toISOString(),
+            items: adjustments,
+            petugas: currentUser ? currentUser.nama : 'Unknown'
+        });
+        
+        localStorage.setItem('gudang_data', JSON.stringify(gudang));
+        localStorage.setItem('stock_log', JSON.stringify(stockLog));
+        localStorage.setItem('stok_opname_log', JSON.stringify(stokOpnameLog));
+        
+        showToast(`${changeCount} stok produk berhasil disesuaikan.`, "success");
+        renderStok();
+        tutupModalStokOpname();
+    } else {
+        showToast("Tidak ada perubahan stok yang dicatat.", "info");
+    }
+}
+
+function bukaRiwayatOpname() {
+    bukaHalaman('laporan'); // Redirect ke laporan
+    // Atau bisa buat modal khusus riwayat opname jika diinginkan
+    // Disini kita integrasikan ke modal laporan opname khusus
+    renderLaporanStokOpname();
+}
+
 // --- MANAJEMEN PELANGGAN ---
 function renderPelanggan() {
     const list = document.getElementById('list-pelanggan');
@@ -1335,10 +1459,16 @@ function renderPelanggan() {
                 <div class="font-bold text-gray-800">${escapeHtml(p.nama)}</div>
                 <div class="text-xs text-gray-500">${escapeHtml(p.nohp)} <span class="ml-2 bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold text-[10px]">${p.poin || 0} Poin</span></div>
                 <div class="text-[10px] text-gray-400 truncate max-w-[200px]">${escapeHtml(p.alamat || '-')}</div>
+                <div class="text-[10px] font-mono text-slate-400 mt-1">ID: ${p.id}</div>
             </div>
-            <button onclick="hapusPelanggan('${p.id}')" class="text-red-500 bg-red-50 p-2 rounded-lg hover:bg-red-100">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-            </button>
+            <div class="flex gap-2">
+                <button onclick="setBarcodeFromProduct('${p.id}', '${p.nama}')" class="text-indigo-500 bg-indigo-50 p-2 rounded-lg hover:bg-indigo-100" title="Barcode Member">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 17h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                </button>
+                <button onclick="hapusPelanggan('${p.id}')" class="text-red-500 bg-red-50 p-2 rounded-lg hover:bg-red-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            </div>
         </div>
     `).join('');
 }
@@ -1398,6 +1528,24 @@ function simpanProfilToko() {
     showToast("Profil toko berhasil disimpan", "success");
 }
 
+// [BARU] Simpan Lokasi Toko (Geofencing)
+function simpanLokasiToko() {
+    if(!navigator.geolocation) return showToast("GPS tidak didukung browser ini", "error");
+    
+    showToast("Mendapatkan lokasi...", "info");
+    navigator.geolocation.getCurrentPosition(pos => {
+        profilToko.lokasi = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+        };
+        localStorage.setItem('profil_toko', JSON.stringify(profilToko));
+        document.getElementById('set-lokasi-coords').value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+        showToast("Lokasi toko berhasil dikunci! Absensi sekarang dibatasi radius 50m.", "success");
+    }, err => {
+        showToast("Gagal akses GPS: " + err.message, "error");
+    }, { enableHighAccuracy: true });
+}
+
 function simpanHappyHour() {
     profilToko.happyHour = {
         start: document.getElementById('hh-start').value,
@@ -1421,6 +1569,17 @@ function simpanLevelMember() {
     };
     localStorage.setItem('app_settings', JSON.stringify(settings));
     showToast("Setting Level Member disimpan", "success");
+}
+
+function simpanPengaturanPoin() {
+    const val = parseInt(document.getElementById('setting-point-multiplier').value);
+    const exchange = parseInt(document.getElementById('setting-point-value').value);
+    if(!val || val < 1000) return showToast("Nominal kelipatan tidak valid (min 1000)", "error");
+    
+    settings.pointMultiplier = val;
+    settings.pointExchangeValue = exchange || 1;
+    localStorage.setItem('app_settings', JSON.stringify(settings));
+    showToast("Pengaturan Poin disimpan", "success");
 }
 
 function tambahVoucher() {
@@ -1450,10 +1609,15 @@ function renderVouchers() {
 
 function bayarSekarang() {
     if(cart.length === 0) return showToast("Keranjang Kosong!", "error");
+    if(!activeShift) {
+        showToast("Shift belum dibuka! Silakan buka shift dulu.", "error");
+        return checkShiftStatus();
+    }
     
     setMetodeBayar('tunai'); // Default
     document.getElementById('input-diskon-global').value = '';
     document.getElementById('input-voucher').value = '';
+    cekPoinPelanggan(); // Cek jika pelanggan sudah dipilih sebelumnya
     hitungTotalBayar();
     
     const inputUang = document.getElementById('input-uang');
@@ -1524,6 +1688,39 @@ function checkHappyHour() {
     return current >= start && current <= end;
 }
 
+// [BARU] Fungsi Cek Poin Pelanggan di Modal Bayar
+function cekPoinPelanggan() {
+    const pelId = document.getElementById('pilih-pelanggan').value;
+    const box = document.getElementById('box-tukar-poin');
+    const lblPoin = document.getElementById('lbl-poin-member');
+    const lblNilai = document.getElementById('lbl-nilai-tukar');
+    const input = document.getElementById('input-tukar-poin');
+
+    if(!pelId) {
+        box.classList.add('hidden');
+        input.value = '';
+        return;
+    }
+
+    const p = pelanggan.find(x => x.id === pelId);
+    if(p) {
+        box.classList.remove('hidden');
+        lblPoin.innerText = p.poin || 0;
+        const val = settings.pointExchangeValue || 1;
+        lblNilai.innerText = `x Rp ${val}`;
+        input.value = ''; // Reset input saat ganti pelanggan
+    }
+}
+
+function gunakanSemuaPoin() {
+    const pelId = document.getElementById('pilih-pelanggan').value;
+    const p = pelanggan.find(x => x.id === pelId);
+    if(p) {
+        document.getElementById('input-tukar-poin').value = p.poin || 0;
+        hitungTotalBayar();
+    }
+}
+
 function hitungTotalBayar() {
     // 1. Hitung Subtotal (Harga Item - Diskon Item) * Qty
     const subtotal = cart.reduce((sum, item) => sum + ((item.harga - (item.diskon || 0)) * item.qty), 0);
@@ -1566,6 +1763,20 @@ function hitungTotalBayar() {
             diskonGlobal += subtotal * (silver.disc / 100);
         }
     }
+
+    // [BARU] Hitung Tukar Poin
+    const inputPoin = parseInt(document.getElementById('input-tukar-poin').value) || 0;
+    let diskonPoin = 0;
+    if (pelData && inputPoin > 0) {
+        if (inputPoin > (pelData.poin || 0)) {
+            // Jika input melebihi saldo, set ke max saldo
+            document.getElementById('input-tukar-poin').value = pelData.poin || 0;
+            diskonPoin = (pelData.poin || 0) * (settings.pointExchangeValue || 1);
+        } else {
+            diskonPoin = inputPoin * (settings.pointExchangeValue || 1);
+        }
+    }
+    diskonGlobal += diskonPoin;
 
     // 3. Hitung Pajak (dari Subtotal - Diskon Global)
     const taxableAmount = Math.max(0, subtotal - diskonGlobal);
@@ -1666,12 +1877,23 @@ function prosesPembayaranFinal() {
         voucher.used = true;
     }
 
+    // [BARU] Apply Point Redemption
+    const inputPoin = parseInt(document.getElementById('input-tukar-poin').value) || 0;
+    if (pelData && inputPoin > 0) {
+        const nilaiTukar = inputPoin * (settings.pointExchangeValue || 1);
+        diskonGlobal += nilaiTukar;
+        
+        // Kurangi Poin Pelanggan
+        pelData.poin = (pelData.poin || 0) - inputPoin;
+    }
+
     const pajakNominal = Math.round(Math.max(0, subtotal - diskonGlobal) * (settingPajak / 100));
     
-    // Hitung Poin (1 Poin tiap Rp 10.000)
+    // Hitung Poin (Sesuai Setting)
     let poinDidapat = 0;
     if (pelData) {
-        poinDidapat = Math.floor(total / 10000);
+        const multiplier = settings.pointMultiplier || 10000;
+        poinDidapat = Math.floor(total / multiplier);
         pelData.poin = (pelData.poin || 0) + poinDidapat;
         
         // [BARU] Tambah Hutang jika metode hutang
@@ -2017,9 +2239,9 @@ function renderLaporan() {
         list.innerHTML = `<p class='text-center text-gray-400 py-8'>Belum ada riwayat transaksi.</p>`;
     } else {
         list.innerHTML = filteredTrx.slice().reverse().map(t => `
-        <div onclick='tampilkanStruk(${JSON.stringify(t)})' class="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border-b border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700">
+        <div onclick='tampilkanStruk(${JSON.stringify(t)})' class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border-b border-slate-100 cursor-pointer hover:bg-slate-100">
             <div>
-                <div class="font-bold text-sm text-gray-800 dark:text-slate-200">${new Date(t.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
+                <div class="font-bold text-sm text-gray-800">${new Date(t.tanggal).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</div>
                 <div class="text-xs text-gray-400">${new Date(t.tanggal).toLocaleDateString('id-ID')}</div>
             </div>
             <div class="font-bold text-teal-600">Rp ${t.total.toLocaleString()}</div>
@@ -2028,6 +2250,36 @@ function renderLaporan() {
     }
 
     renderSalesChart(salesByDay, startDate, endDate);
+}
+
+// [BARU] Render Laporan Stok Opname
+function renderLaporanStokOpname() {
+    const list = document.getElementById('list-riwayat-opname');
+    if(stokOpnameLog.length === 0) {
+        list.innerHTML = '<p class="text-center text-gray-400 py-4">Belum ada riwayat opname.</p>';
+    } else {
+        list.innerHTML = stokOpnameLog.map(log => `
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 mb-3">
+                <div class="flex justify-between items-center mb-2 border-b border-slate-200 pb-2">
+                    <div>
+                        <div class="font-bold text-slate-700 text-sm">${new Date(log.tanggal).toLocaleString('id-ID')}</div>
+                        <div class="text-[10px] text-slate-400">Petugas: ${log.petugas}</div>
+                    </div>
+                    <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">${log.items.length} Item Disesuaikan</span>
+                </div>
+                <div class="space-y-1 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                    ${log.items.map(item => `
+                        <div class="flex justify-between text-xs text-slate-600">
+                            <span class="truncate w-1/2">${item.nama}</span>
+                            <span class="font-mono">${item.system} ➝ <b class="${item.diff > 0 ? 'text-emerald-600' : 'text-red-500'}">${item.fisik}</b> (${item.diff > 0 ? '+' : ''}${item.diff})</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `).join('');
+    }
+    document.getElementById('modal-riwayat-opname').classList.remove('hidden');
+    document.getElementById('modal-riwayat-opname').classList.add('flex');
 }
 
 function setLaporanHariIni() {
@@ -2059,9 +2311,9 @@ function renderMenuGrid(kategoriFilter = 'semua') {
         gridContainer.innerHTML = `<p class="text-center text-slate-400 col-span-full py-10">Tidak ada produk di kategori ini.</p>`;
     } else {
         gridContainer.innerHTML = produkToShow.sort((a,b) => a.nama.localeCompare(b.nama)).map(p => `
-            <div onclick="tambahKeCart('${p.sku}')" class="bg-slate-50 dark:bg-slate-700 rounded-xl p-2 flex flex-col items-center text-center cursor-pointer hover:bg-teal-50 dark:hover:bg-slate-600 hover:ring-2 hover:ring-teal-500 transition-all active:scale-95">
+            <div onclick="tambahKeCart('${p.sku}')" class="bg-slate-50 rounded-xl p-2 flex flex-col items-center text-center cursor-pointer hover:bg-teal-50 hover:ring-2 hover:ring-teal-500 transition-all active:scale-95">
                 <img src="${p.gambar || 'https://via.placeholder.com/150x150.png?text=No+Image'}" class="w-full h-24 object-cover rounded-lg mb-2 bg-white">
-                <p class="text-xs font-bold text-slate-700 dark:text-slate-200 flex-grow">${escapeHtml(p.nama)}</p>
+                <p class="text-xs font-bold text-slate-700 flex-grow">${escapeHtml(p.nama)}</p>
                 <p class="text-sm font-bold text-teal-600 mt-1">${formatRupiah(p.harga)}</p>
             </div>
         `).join('');
@@ -2079,47 +2331,18 @@ function renderMenuGrid(kategoriFilter = 'semua') {
     });
 }
 
-// [BARU] LOGIKA ABSENSI
-function startKameraAbsensi() {
-    const video = document.getElementById('video-absensi');
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-            .then(function(stream) {
-                video.srcObject = stream;
-            })
-            .catch(function(err) {
-                showToast("Gagal akses kamera depan!", "error");
-            });
-    }
-}
-
-function ambilAbsensi() {
-    const video = document.getElementById('video-absensi');
-    const canvas = document.getElementById('canvas-absensi');
-    const context = canvas.getContext('2d');
-    
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    const foto = canvas.toDataURL('image/jpeg');
-    const waktu = new Date().toISOString();
-    
-    absensiLog.unshift({ waktu, foto, user: currentUser.nama });
-    localStorage.setItem('absensi_log', JSON.stringify(absensiLog));
-    
-    showToast("Absensi Berhasil!", "success");
-    renderRiwayatAbsensi();
-}
-
 function renderRiwayatAbsensi() {
+    // Fungsi ini sekarang bisa dipanggil dari absensi.js juga
+    absensiLog = JSON.parse(localStorage.getItem('absensi_log')) || [];
     const list = document.getElementById('riwayat-absensi');
     list.innerHTML = absensiLog.slice(0, 5).map(log => `
         <div class="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-100">
-            <img src="${log.foto}" class="w-12 h-12 rounded-full object-cover border-2 border-teal-500">
+            <div class="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold border-2 border-teal-500">
+                ${log.user.charAt(0).toUpperCase()}
+            </div>
             <div>
                 <div class="font-bold text-sm text-slate-800">${log.user}</div>
-                <div class="text-xs text-slate-500">${new Date(log.waktu).toLocaleString('id-ID')}</div>
+                <div class="text-xs text-slate-500">${new Date(log.waktu).toLocaleString('id-ID')} • ${log.metode || 'Manual'}</div>
             </div>
         </div>
     `).join('');
@@ -2161,6 +2384,7 @@ function renderListProdukBarcode() {
 }
 
 function setBarcodeFromProduct(sku, nama) {
+    bukaHalaman('barcode'); // [BARU] Otomatis pindah ke halaman barcode
     document.getElementById('bc-code').value = sku;
     document.getElementById('bc-label').value = nama;
     generateBarcode();
@@ -2454,6 +2678,37 @@ function renderDashboard() {
     document.getElementById('db-target-percentage').innerText = `${Math.round(progress)}%`;
     document.getElementById('db-target-value').innerText = `dari Rp ${target.toLocaleString()}`;
 
+    // [BARU] Notifikasi Kedaluwarsa (H-30)
+    const warningDate = new Date();
+    warningDate.setDate(warningDate.getDate() + 30); // Peringatan 30 hari kedepan
+    const todayDate = new Date();
+    todayDate.setHours(0,0,0,0);
+
+    const expiredItems = gudang.filter(p => {
+        if(!p.expiredDate) return false;
+        const exp = new Date(p.expiredDate);
+        return exp <= warningDate && p.stok > 0; // Hanya tampilkan jika masih ada stok
+    }).sort((a,b) => new Date(a.expiredDate) - new Date(b.expiredDate));
+
+    const expiredList = document.getElementById('db-expired-list');
+    if (expiredItems.length > 0) {
+        expiredList.innerHTML = expiredItems.map(p => {
+            const exp = new Date(p.expiredDate);
+            const isExpired = exp < todayDate;
+            const daysLeft = Math.ceil((exp - todayDate) / (1000 * 60 * 60 * 24));
+            
+            return `
+            <div class="flex justify-between items-center text-sm p-3 rounded-lg ${isExpired ? 'bg-red-50 border border-red-100' : 'bg-orange-50 border border-orange-100'} mb-2">
+                <div>
+                    <div class="font-bold text-slate-700">${escapeHtml(p.nama)}</div>
+                    <div class="text-xs ${isExpired ? 'text-red-600 font-bold' : 'text-orange-600'}">${isExpired ? 'SUDAH KEDALUWARSA' : `Exp: ${exp.toLocaleDateString('id-ID')} (${daysLeft} hari lagi)`}</div>
+                </div>
+                <span class="text-xs font-bold bg-white px-2 py-1 rounded border shadow-sm">Stok: ${p.stok}</span>
+            </div>`;
+        }).join('');
+    } else {
+        expiredList.innerHTML = `<p class="text-sm text-slate-400 text-center py-4">Tidak ada produk mendekati kedaluwarsa.</p>`;
+    }
 
     // Produk Terlaris Hari Ini
     const topSellingList = document.getElementById('db-top-selling-list');
@@ -2625,6 +2880,87 @@ function resetCart() {
     }
 }
 
+// [BARU] LOGIKA SHIFT KASIR
+function checkShiftStatus() {
+    if (!activeShift) {
+        document.getElementById('modal-buka-shift').classList.remove('hidden');
+        document.getElementById('modal-buka-shift').classList.add('flex');
+        setTimeout(() => document.getElementById('shift-modal-awal').focus(), 100);
+    }
+}
+
+function prosesBukaShift() {
+    const modal = parseInt(document.getElementById('shift-modal-awal').value);
+    if(isNaN(modal)) return showToast("Masukkan nominal modal awal!", "error");
+
+    activeShift = {
+        id: 'SH-' + Date.now(),
+        buka: new Date().toISOString(),
+        kasir: currentUser.nama,
+        modalAwal: modal
+    };
+    localStorage.setItem('active_shift', JSON.stringify(activeShift));
+    
+    document.getElementById('modal-buka-shift').classList.add('hidden');
+    document.getElementById('modal-buka-shift').classList.remove('flex');
+    showToast("Shift Kasir Dibuka. Selamat Bekerja!", "success");
+    renderDashboard();
+}
+
+function konfirmasiTutupShift() {
+    if(!activeShift) return showToast("Shift belum dibuka!", "error");
+    
+    // Hitung Ringkasan Arus Kas
+    const start = new Date(activeShift.buka);
+    const now = new Date();
+    
+    // 1. Total Penjualan Tunai di sesi ini
+    const trxSesi = riwayat.filter(t => {
+        const tDate = new Date(t.tanggal);
+        return tDate >= start && tDate <= now && t.metode === 'tunai';
+    });
+    // Asumsi: Uang masuk = Total Tagihan (karena kembalian dikeluarkan dari laci)
+    const totalTunai = trxSesi.reduce((sum, t) => sum + t.total, 0); 
+    
+    // 2. Total Pengeluaran di sesi ini
+    const expSesi = pengeluaran.filter(p => {
+        const pDate = new Date(p.tanggal);
+        return pDate >= start && pDate <= now;
+    });
+    const totalKeluar = expSesi.reduce((sum, p) => sum + p.nominal, 0);
+    
+    // 3. Saldo Seharusnya
+    const expected = activeShift.modalAwal + totalTunai - totalKeluar;
+    
+    document.getElementById('shift-info-modal').innerText = `Rp ${activeShift.modalAwal.toLocaleString()}`;
+    document.getElementById('shift-info-masuk').innerText = `Rp ${totalTunai.toLocaleString()}`;
+    document.getElementById('shift-info-keluar').innerText = `Rp ${totalKeluar.toLocaleString()}`;
+    document.getElementById('shift-info-expected').innerText = `Rp ${expected.toLocaleString()}`;
+    document.getElementById('shift-expected-val').value = expected;
+    
+    document.getElementById('modal-tutup-shift').classList.remove('hidden');
+    document.getElementById('modal-tutup-shift').classList.add('flex');
+}
+
+function prosesTutupShift() {
+    const actual = parseInt(document.getElementById('shift-uang-fisik').value) || 0;
+    const expected = parseInt(document.getElementById('shift-expected-val').value) || 0;
+    const selisih = actual - expected;
+    
+    activeShift.tutup = new Date().toISOString();
+    activeShift.uangFisik = actual;
+    activeShift.expected = expected;
+    activeShift.selisih = selisih;
+    
+    shiftLog.unshift(activeShift);
+    localStorage.setItem('shift_log', JSON.stringify(shiftLog));
+    localStorage.removeItem('active_shift');
+    activeShift = null;
+    
+    showToast("Shift Ditutup. Logout otomatis...", "success");
+    setTimeout(() => { location.reload(); }, 1500);
+}
+
 // [CANGGIH] SISTEM LOGIN PIN
 let loginPin = "";
 
@@ -2689,6 +3025,7 @@ function initAfterLogin() {
     setInterval(updateClock, 1000);
     updateNetworkStatus();
     setupVoiceSearch();
+    checkShiftStatus(); // [BARU] Cek shift saat login
 }
 
 // Inisialisasi Aplikasi
@@ -2715,7 +3052,7 @@ function renderMeja() {
     if(!container) return;
     
     container.innerHTML = mejaData.map(m => `
-        <div onclick="pilihMeja(${m.id})" class="p-4 rounded-xl border cursor-pointer flex flex-col items-center justify-center gap-2 transition-all ${m.status === 'terisi' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-teal-50 hover:border-teal-300'}">
+        <div onclick="pilihMeja(${m.id})" class="p-4 rounded-xl border cursor-pointer flex flex-col items-center justify-center gap-2 transition-all ${m.status === 'terisi' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-teal-50 hover:border-teal-300'}">
             <span class="font-bold text-xl">Meja ${m.id}</span>
             <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${m.status === 'terisi' ? 'bg-red-100' : 'bg-slate-100'}">${m.status}</span>
             ${m.pesanan.length > 0 ? `<span class="text-[10px] bg-white px-2 py-1 rounded-full border shadow-sm mt-1">${m.pesanan.length} Item</span>` : ''}
