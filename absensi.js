@@ -38,14 +38,38 @@ function deg2rad(deg) {
     return deg * (Math.PI/180);
 }
 
+// [BARU] Helper Load Script Dinamis (Lazy Load)
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) return resolve();
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
 // Load Model Wajah dari CDN Publik
 async function initAbsensiSystem() {
     if (isAbsensiModelLoaded) return;
     
+    const statusEl = document.getElementById('absensi-status');
+
+    // [OPTIMASI] Load Library face-api.js hanya saat dibutuhkan agar aplikasi ringan
+    if (typeof faceapi === 'undefined') {
+        if(statusEl) statusEl.innerText = "Memuat Engine AI (Mohon Tunggu)...";
+        try {
+            await loadScript('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js');
+        } catch (e) {
+            if(statusEl) statusEl.innerText = "Gagal memuat Engine AI. Cek koneksi.";
+            return;
+        }
+    }
+
     // Menggunakan model dari repo publik face-api.js
     const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
     
-    const statusEl = document.getElementById('absensi-status');
     
     // Cek koneksi untuk memberi feedback yang tepat
     if (!navigator.onLine) {
@@ -105,9 +129,32 @@ async function startAbsensiCamera() {
     const video = document.getElementById('video-absensi');
     if (!video) return;
 
+    // [CANGGIH] Konfigurasi Kamera Adaptif
+    // Mengutamakan performa (640x480) daripada resolusi tinggi yang berat
+    const constraints = {
+        video: { 
+            facingMode: "user",
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 30 }
+        },
+        audio: false
+    };
+
     try {
-        absensiStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        try {
+            absensiStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (e) {
+            console.warn("Kamera user gagal, mencoba fallback ke default...", e);
+            // Fallback: Coba kamera apapun yang tersedia (penting untuk laptop lama/webcam eksternal)
+            absensiStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+
         video.srcObject = absensiStream;
+        
+        // [FIX] Tampilan Video: Gunakan 'contain' agar wajah tidak terpotong (cropping) dan koordinat AI akurat
+        video.style.objectFit = "contain"; 
+        video.style.backgroundColor = "#000"; // Background hitam untuk area kosong
         
         video.onloadedmetadata = () => {
             video.play();
@@ -115,7 +162,12 @@ async function startAbsensiCamera() {
         };
     } catch (err) {
         console.error(err);
-        showToast("Gagal akses kamera depan!", "error");
+        let msg = "Gagal akses kamera.";
+        if (err.name === 'NotAllowedError') msg = "Izin kamera ditolak. Mohon izinkan akses.";
+        if (err.name === 'NotFoundError') msg = "Kamera tidak ditemukan.";
+        showToast(msg, "error");
+        const statusEl = document.getElementById('absensi-status');
+        if(statusEl) statusEl.innerHTML = `<span class='text-red-500 font-bold'>${msg}</span>`;
     }
 }
 
@@ -149,8 +201,13 @@ async function detectFrame() {
 
     isDetecting = true;
 
-    // Sesuaikan ukuran canvas dengan video
-    const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
+    // [FIX] Gunakan resolusi asli video untuk akurasi AI
+    // offsetWidth bisa menyebabkan masalah jika video di-scale CSS
+    // Kita gunakan ukuran visual video element untuk canvas agar overlay pas
+    const displaySize = { width: video.clientWidth, height: video.clientHeight };
+    
+    canvas.width = displaySize.width;
+    canvas.height = displaySize.height;
     faceapi.matchDimensions(canvas, displaySize);
 
     const loop = async () => {
